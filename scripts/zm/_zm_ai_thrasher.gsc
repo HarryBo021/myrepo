@@ -1,6 +1,7 @@
 #using scripts\codescripts\struct;
 #using scripts\shared\aat_shared;
 #using scripts\shared\ai\archetype_thrasher;
+#using scripts\shared\ai\archetype_thrasher_interface;
 #using scripts\shared\ai\zombie_utility;
 #using scripts\shared\ai_shared;
 #using scripts\shared\array_shared;
@@ -27,12 +28,12 @@
 #using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_stats;
 #using scripts\zm\_zm_utility;
+#insert scripts\shared\aat_zm.gsh;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
+#insert scripts\zm\_zm_ai_thrasher.gsh;
 
 #namespace zm_ai_thrasher;
-
-// #precache( "model", "p7_fxanim_zm_island_thrasher_stomach_mod" );
 
 REGISTER_SYSTEM_EX( "zm_ai_thrasher", &__init__, &__main__, undefined )
 
@@ -50,12 +51,12 @@ function __init__()
 	level.b_thrasher_transforming = 1;
 	level.n_last_thrasher_transform_round = 1;
 	level.n_thrashers_spawned_this_round = 0;
-	level.aat[ "zm_aat_blast_furnace" ].immune_result_direct[ "thrasher" ] = 1;
-	level.aat[ "zm_aat_blast_furnace" ].immune_result_indirect[ "thrasher" ] = 1;
-	level.aat[ "zm_aat_turned" ].immune_trigger[ "thrasher" ] = 1;
-	level.aat[ "zm_aat_fire_works" ].immune_trigger[ "thrasher" ] = 1;
-	level.aat[ "zm_aat_thunder_wall" ].immune_result_direct[ "thrasher" ] = 1;
-	level.aat[ "zm_aat_thunder_wall" ].immune_result_indirect[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_BLAST_FURNACE_NAME ].immune_result_direct[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_BLAST_FURNACE_NAME ].immune_result_indirect[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_TURNED_NAME ].immune_trigger[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_FIRE_WORKS_NAME ].immune_trigger[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_THUNDER_WALL_NAME ].immune_result_direct[ "thrasher" ] = 1;
+	level.aat[ ZM_AAT_THUNDER_WALL_NAME ].immune_result_indirect[ "thrasher" ] = 1;
 	level.thrasher_spawners = [];
 	level.thrasher_spawners = getEntArray( "zombie_thrasher_spawner", "script_noteworthy" );
 	
@@ -79,7 +80,7 @@ function __main__()
 
 function register_clientfields()
 {
-	clientfield::register( "actor", "thrasher_mouth_cf", 9000, 8, "int" );
+	clientfield::register( "actor", THRASHER_MOUTH_CF, VERSION_SHIP, 8, "int" );
 }
 
 function on_player_spawned()
@@ -129,7 +130,7 @@ function thrasher_round_tracker()
 {
 	level.n_thrasher_round_count = 1;
 	level.n_thrashers_spawned_by_spores = 0;
-	level.n_next_thrasher_round = level.round_number + randomIntRange( 4, 7 );
+	level.n_next_thrasher_round = level.round_number + randomIntRange( THRASHER_THRASHER_START_ROUND_MIN, THRASHER_THRASHER_START_ROUND_MAX );
 	while ( 1 )
 	{
 		level waittill( "between_round_over" );
@@ -141,7 +142,7 @@ function thrasher_round_tracker()
 		}
 		if ( level.round_number == level.n_next_thrasher_round )
 		{
-			level.n_next_thrasher_round = level.round_number + 3;
+			level.n_next_thrasher_round = level.round_number + THRASHER_THRASHER_NEXT_ROUND;
 			level thread thrasher_round_spawning();
 			level flag::set( "thrasher_round" );
 			level waittill( "end_of_round" );
@@ -167,27 +168,27 @@ function thrasher_round_spawning()
 	{
 		case 1:
 		{
-			n_thrashers_to_spawn = 2;
+			n_thrashers_to_spawn = THRASHER_PER_ROUND_1P;
 			break;
 		}
 		case 2:
 		{
-			n_thrashers_to_spawn = 2;
+			n_thrashers_to_spawn = THRASHER_PER_ROUND_2P;
 			break;
 		}
 		case 3:
 		{
-			n_thrashers_to_spawn = 3;
+			n_thrashers_to_spawn = THRASHER_PER_ROUND_3P;
 			break;
 		}
 		case 4:
 		{
-			n_thrashers_to_spawn = 4;
+			n_thrashers_to_spawn = THRASHER_PER_ROUND_4P;
 			break;
 		}
 		default:
 		{
-			n_thrashers_to_spawn = 2;
+			n_thrashers_to_spawn = THRASHER_PER_ROUND_1P;
 			break;
 		}
 	}
@@ -218,38 +219,38 @@ function thrasher_can_spawn( v_origin )
 			return 0;
 		
 	}
-	if ( level.n_thrashers_spawned_this_round >= 2 && level.players.size == 1 && level.round_number < 20 )
+	if ( level.n_thrashers_spawned_this_round >= THRASHER_PER_ROUND_1P && level.players.size == 1 && level.round_number < THRASHER_CAP_ON_SOLO_TILL_ROUND )
 		return 0;
 	
-	if ( level.round_number < 4 )
+	if ( level.round_number < THRASHER_NO_SPAWN_UNTIL_ROUND )
 		return 0;
 	
 	switch ( level.players.size )
 	{
 		case 1:
 		{
-			if ( level.a_thrashers.size < 2 )
+			if ( level.a_thrashers.size < THRASHER_PER_ROUND_1P )
 				return 1;
 			
 			break;
 		}
 		case 2:
 		{
-			if ( level.a_thrashers.size < 2 )
+			if ( level.a_thrashers.size < THRASHER_PER_ROUND_2P )
 				return 1;
 			
 			break;
 		}
 		case 3:
 		{
-			if ( level.a_thrashers.size < 3 )
+			if ( level.a_thrashers.size < THRASHER_PER_ROUND_3P )
 				return 1;
 			
 			break;
 		}
 		case 4:
 		{
-			if ( level.a_thrashers.size < 4 )
+			if ( level.a_thrashers.size < THRASHER_PER_ROUND_4P )
 				return 1;
 			
 			break;
@@ -261,43 +262,7 @@ function thrasher_can_spawn( v_origin )
 	}
 	return 0;
 }
-/*
-function function_68ee76ee(var_d1cba433, var_48cf4a3d)
-{
-	if(!isdefined(var_48cf4a3d))
-	{
-		var_48cf4a3d = 1;
-	}
-	level endon("end_of_round");
-	/#
-		Assert(var_d1cba433.size >= var_48cf4a3d, "Dev Block strings are not supported");
-	#/
-	for(i = 0; i < var_48cf4a3d; i++)
-	{
-		var_a4ef4373 = undefined;
-		while(!isdefined(var_a4ef4373))
-		{
-			foreach(ai in var_d1cba433)
-			{
-				if(thrasher_can_infect_zombie(ai))
-				{
-					var_a4ef4373 = ai;
-					break;
-				}
-			}
-			wait(0.5);
-		}
-		if(isalive(var_a4ef4373))
-		{
-			if(thrasher_can_spawn())
-			{
-				ai_thrasher = thrasher_transform_zombie(var_a4ef4373);
-				ArrayRemoveValue(var_d1cba433, var_a4ef4373);
-			}
-		}
-	}
-}
-*/
+
 function thrasher_transform_zombie( e_infected_zombie, b_use_spawn_valid_checks = 1, b_delay_if_thrasher_transforming = 1, b_is_friendly = 0 )
 {
 	level endon( "end_of_round" );
@@ -308,10 +273,9 @@ function thrasher_transform_zombie( e_infected_zombie, b_use_spawn_valid_checks 
 	while ( !IS_TRUE( e_infected_zombie.zombie_init_done ) )
 		wait .05;
 	
-	if( IS_TRUE(e_infected_zombie.b_is_thrasher) )
-	{
+	if ( IS_TRUE( e_infected_zombie.b_is_thrasher ) )
 		return;
-	}
+	
 	if ( b_delay_if_thrasher_transforming )
 	{
 		if ( !level.b_thrasher_transforming )
@@ -323,7 +287,6 @@ function thrasher_transform_zombie( e_infected_zombie, b_use_spawn_valid_checks 
 	
 	if ( isAlive( e_infected_zombie ) )
 	{
-		// e_infected_zombie.var_34d00e7 = 1;
 		if ( b_is_friendly == 0 )
 			level notify( "hash_49c2b21f", e_infected_zombie );
 		else
@@ -381,9 +344,9 @@ function thrasher_pustule_pop_callback( v_origin, w_weapon, e_attacker )
 	}
 	n_infected_zombies_count = 0;
 	n_burst_time = getTime();
-	n_infect_distance_sq = 60 * 60;
-	n_offset = 36;
-	while ( n_burst_time + 5000 > getTime() )
+	n_infect_distance_sq = THRASHER_PUSTULE_INFECT_RANGE * THRASHER_PUSTULE_INFECT_RANGE;
+	n_offset = THRASHER_PUSTULE_INFECT_Z_OFFSET;
+	while ( n_burst_time + THRASHER_PUSTULE_DELAY_INFECTION > getTime() )
 	{
 		if ( level.n_thrashers_spawned_by_spores < 2 )
 		{
@@ -395,14 +358,14 @@ function thrasher_pustule_pop_callback( v_origin, w_weapon, e_attacker )
 					v_infect_origin = ( zombie.origin[ 0 ], zombie.origin[ 1 ], zombie.origin[ 2 ] + n_offset );
 					if ( distanceSquared( v_infect_origin, v_origin ) <= n_infect_distance_sq )
 					{
-						if ( .2 >= randomFloat( 1 ) && thrasher_can_infect_zombie( zombie ) )
+						if ( THRASHER_PUSTULE_INFECT_CHANCE >= randomFloat( 1 ) && thrasher_can_infect_zombie( zombie ) )
 						{
 							level.n_thrashers_spawned_by_spores++;
 							n_infected_zombies_count++;
 							thrasher_transform_zombie( zombie );
 						}
 					}
-					if ( n_infected_zombies_count >= 2 )
+					if ( n_infected_zombies_count >= THRASHER_PUSTULE_MAX_INFECT_ZOMBIES )
 						return;
 					
 				}
@@ -440,7 +403,7 @@ function thrasher_do_spawn( v_pos )
 	e_scene_model = util::spawn_model( "tag_origin", self.origin, self.angles );
 	e_scene_model thread scene::play( "scene_zm_dlc2_thrasher_teleport_out", self );
 	self util::waittill_notify_or_timeout( "thrasher_teleport_out_done", 4 );
-	v_dest_pos = util::positionQuery_PointArray( v_pos, 128, 750, 32, 64, self );
+	v_dest_pos = util::positionQuery_PointArray( v_pos, THRASHER_SPAWN_RANGE_MIN, THRASHER_SPAWN_RANGE_MAX, THRASHER_SPAWN_HALF_HEIGHT, THRASHER_SPAWN_INNER_SPACING, self );
 	if ( isDefined( self.thrasher_teleport_dest_func ) )
 		v_dest_pos = self [ [ self.thrasher_teleport_dest_func ]]( v_dest_pos );
 	
@@ -487,17 +450,17 @@ function thrasher_prespawn()
 		zombiehealth = level.zombie_vars[ "zombie_health_start" ];
 	
 	if ( level.round_number <= 50 )
-		self.maxhealth = zombiehealth * 10;
+		self.maxhealth = zombiehealth * THRASHER_MAX_HEALTH_MULTIPLIER_BEFORE_ROUND_50;
 	else if ( level.round_number <= 70 )
 	{
 		n_round = level.round_number;
-		n_health_multiplier = 10 - n_round - 50 * .35;
+		n_health_multiplier = 10 - ( n_round - 50 * THRASHER_MAX_HEALTH_MULTIPLIER_BEFORE_ROUND_70 );
 		self.maxhealth = int( zombiehealth * n_health_multiplier );
 	}
 	else
-		self.maxhealth = zombiehealth * 3;
+		self.maxhealth = zombiehealth * THRASHER_MAX_HEALTH_MULTIPLIER_AFTER;
 	
-	if ( !isDefined( self.maxhealth ) || self.maxhealth <= 0 || self.maxhealth > 2147483647 || self.maxhealth != self.maxhealth )
+	if ( !isDefined( self.maxhealth ) || self.maxhealth <= 0 || self.maxhealth > THRASHER_MAX_HEALTH || self.maxhealth != self.maxhealth )
 		self.maxhealth = zombiehealth;
 	
 	self.health = self.maxhealth;
@@ -526,7 +489,7 @@ function thrasher_prespawn()
 	foreach ( e_spore in self.thrasherSpores )
 	{
 		e_spore.health = zombiehealth * 2;
-		if ( !isDefined( e_spore.health ) || e_spore.health <= 0 || e_spore.health > 2147483647 || e_spore.health != e_spore.health )
+		if ( !isDefined( e_spore.health ) || e_spore.health <= 0 || e_spore.health > THRASHER_MAX_HEALTH || e_spore.health != e_spore.health )
 			e_spore.health = zombiehealth;
 		
 		e_spore.maxhealth = e_spore.health;
@@ -600,7 +563,7 @@ function thrasher_riotshield_fling_func( player, gib )
 function thrasher_can_eat_zombie( entity )
 {
 	a_zombies = zombie_utility::get_zombie_array();
-	a_zombies_in_range = arraySortClosest(a_zombies, entity.origin, 5, 50, 96);
+	a_zombies_in_range = arraySortClosest( a_zombies, entity.origin, 5, 50, 96 );
 	foreach( zombie in a_zombies_in_range )
 	{
 		if ( !isDefined( zombie ) || IS_TRUE( zombie.knockdown ) || IS_TRUE( zombie.missingLegs ) || IS_TRUE( zombie.thrasherConsumed ) || zombie isRagdoll())
@@ -667,12 +630,12 @@ function thrasher_set_mouth_state( e_entity, e_player, str_state )
 	if ( isDefined( e_entity ) && isDefined( e_player ) )
 	{
 		entityNumber = e_player getEntityNumber();
-		n_mouth_state = e_entity clientfield::get( "thrasher_mouth_cf" );
+		n_mouth_state = e_entity clientfield::get( THRASHER_MOUTH_CF );
 		 
 		n_mouth_state &= ~( 3 << ( 2 * entityNumber ) );
 		n_mouth_state |= ( str_state << ( 2 * entityNumber ) );
 		
-		e_entity clientfield::set( "thrasher_mouth_cf", n_mouth_state );
+		e_entity clientfield::set( THRASHER_MOUTH_CF, n_mouth_state );
 	}
 }
 

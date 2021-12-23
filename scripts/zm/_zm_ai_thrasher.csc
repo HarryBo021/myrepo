@@ -2,8 +2,10 @@
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\lui_shared;
 #using scripts\shared\postfx_shared;
+#using scripts\shared\ai\archetype_thrasher;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
+#insert scripts\zm\_zm_ai_thrasher.gsh;
 
 #namespace zm_ai_thrasher;
 
@@ -11,15 +13,15 @@
 
 function autoexec main()
 {
-	clientfield::register( "actor", "thrasher_mouth_cf", 9000, 8, "int", &ThrasherClientUtils::thrasher_mouth_cf, 0, 0 );
+	clientfield::register( "actor", THRASHER_MOUTH_CF, VERSION_SHIP, 8, "int", &ThrasherClientUtils::thrasher_mouth_cf, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 }
 
 #namespace ThrasherClientUtils;
 
-function thrasher_get_state( entity, player, State )
+function thrasher_get_state( entity, player, state )
 {
 	entityNumber = player getEntityNumber();
-	n_mouth_state = State;
+	n_mouth_state = state;
 	n_mouth_state &= ( 3 << ( 2 * entityNumber ) );
 	return n_mouth_state >> ( 2 * entityNumber );
 }

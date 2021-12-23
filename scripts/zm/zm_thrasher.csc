@@ -36,7 +36,7 @@
 
 #using scripts\zm\zm_usermap;
 
-#using scripts\shared\ai\archetype_thrasher;
+//THRASHER
 #using scripts\zm\_zm_ai_thrasher;
 
 function main()

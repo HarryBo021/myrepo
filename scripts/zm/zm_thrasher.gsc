@@ -52,8 +52,7 @@
 
 #using scripts\zm\zm_usermap;
 
-#using scripts\shared\ai\archetype_thrasher_interface;
-#using scripts\shared\ai\archetype_thrasher;
+//THRASHER
 #using scripts\zm\_zm_ai_thrasher;
 
 //*****************************************************************************
