@@ -32,7 +32,7 @@
 #define	MECHZ_MAX_ROUND_SOLO													6
 #define	MECHZ_ZOMBIE_PER_ROUND													1
 #define	MECHZ_ZOMBIE_MAX_PER_ROUND											3
-#define	MECHZ_FIRST_SPAWN_ROUND												1
-#define	MECHZ_FIRST_SPAWN_ROUND_SOLO										1
+#define	MECHZ_FIRST_SPAWN_ROUND												3
+#define	MECHZ_FIRST_SPAWN_ROUND_SOLO										4
 #define	MECHZ_POWERUPS_ON_DEATH												array( "double_points", "insta_kill", "full_ammo", "nuke" )
 	
