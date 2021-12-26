@@ -1,3 +1,4 @@
+#using scripts\shared\array_shared;
 #using scripts\shared\clientfield_shared;
 #using scripts\shared\system_shared;
 #using scripts\shared\util_shared;
@@ -30,6 +31,14 @@
 
 #insert scripts\zm\_zm_behavior.gsh;
 
+#define	ZOMBIE_SIDE_STEP_CHANCE		  					.7
+#define	ZOMBIE_RIGHT_STEP_CHANCE		  					.5
+#define	ZOMBIE_FORWARD_STEP_CHANCE		  				.3
+
+#define	ZOMBIE_REACTION_INTERVAL							2000
+#define	ZOMBIE_MIN_REACTION_DIST    						64
+#define	ZOMBIE_MAX_REACTION_DIST		  					1000
+
 #namespace hb21_zm_behavior;
 
 REGISTER_SYSTEM( "hb21_zm_behavior", &__init__, undefined )
@@ -37,57 +46,207 @@ REGISTER_SYSTEM( "hb21_zm_behavior", &__init__, undefined )
 function __init__()
 {
 	// ------- ZOMBIE SOE EXPLOSIVE DEATHS -----------//
-	BT_REGISTER_API( "explosivekillinvalid",                 	 	&explosive_kill_invalid );
+	BT_REGISTER_API( 			"explosivekillinvalid",                 	 			&explosive_kill_invalid );
 	
 	// ------- ZOMBIE IDGUN -----------//
-	BT_REGISTER_API( "waskilledbyidgun", 									&was_killed_by_idgun );
+	BT_REGISTER_API( 			"waskilledbyidgun", 								&was_killed_by_idgun );
 	
 	// ------- ZOMBIE GERSH DEVICE -----------//
-	BT_REGISTER_ACTION( "hb21zombieblackholebombpullaction", &zombie_black_hole_bomb_pull_start, &zombie_black_hole_bomb_pull_update, &zombie_black_hole_bomb_pull_end );
-	BT_REGISTER_API( "waskilledbyblackholebomb", 						&was_killed_by_black_hole_bomb );
+	BT_REGISTER_ACTION( 	"hb21zombieblackholebombpullaction", 	&zombie_black_hole_bomb_pull_start, 		&zombie_black_hole_bomb_pull_update, 	&zombie_black_hole_bomb_pull_end );
+	BT_REGISTER_API( 			"waskilledbyblackholebomb", 					&was_killed_by_black_hole_bomb );
 	
 	// ------- ZOMBIE STAFFS -----------//
-	BT_REGISTER_API( "waskilledbywaterstaff", 							&is_staff_water_damage );
-	BT_REGISTER_API( "waskilledbylightningstaff", 							&is_staff_lightning_damage );
-	BT_REGISTER_API( "wasstunnedbylightningstaff", 					&was_stunned_by_lightning_staff );
-	BT_REGISTER_API( "zombiestunlightningactionend", 				&zombie_stun_lightning_action_end );
-	BT_REGISTER_API( "zombieshouldwhirlwind", 							&zombie_should_whirlwind );
-	BT_REGISTER_API( "wasstunnedbyfirestaff", 							&was_stunned_by_fire_staff );
-	BT_REGISTER_API( "zombiestunfireactionend", 						&zombie_stun_fire_action_end );
-	BT_REGISTER_API( "waskilledbyfirestaff", 								&is_staff_fire_damage );
+	BT_REGISTER_API( 			"waskilledbywaterstaff", 							&is_staff_water_damage );
+	BT_REGISTER_API( 			"waskilledbylightningstaff", 						&is_staff_lightning_damage );
+	BT_REGISTER_API( 			"wasstunnedbylightningstaff", 					&was_stunned_by_lightning_staff );
+	BT_REGISTER_API( 			"zombiestunlightningactionend", 				&zombie_stun_lightning_action_end );
+	BT_REGISTER_API( 			"zombieshouldwhirlwind", 						&zombie_should_whirlwind );
+	BT_REGISTER_API( 			"wasstunnedbyfirestaff", 						&was_stunned_by_fire_staff );
+	BT_REGISTER_API( 			"zombiestunfireactionend", 						&zombie_stun_fire_action_end );
+	BT_REGISTER_API( 			"waskilledbyfirestaff", 							&is_staff_fire_damage );
 	
 	// ------- ZOMBIE WAVEGUN -----------//
-	BT_REGISTER_API( "moonzombiekilledbymicrowavegun", 		&is_microwavegun_damage );
-	BT_REGISTER_API( "moonzombiekilledbymicrowavegundw",		&is_zapgun_damage );
+	BT_REGISTER_API( 			"moonzombiekilledbymicrowavegun", 		&is_microwavegun_damage );
+	BT_REGISTER_API( 			"moonzombiekilledbymicrowavegundw",	&is_zapgun_damage );
 	
 	// ------- ZOMBIE INERT -----------//
-	BT_REGISTER_API( "zombieshouldinertidle", 							&zombie_should_inert_idle );
-	BT_REGISTER_API( "zombieshouldinertwakeup", 						&zombie_should_inert_wakeup );
-	BT_REGISTER_API( "zombieshouldinertterminate", 					&zombie_inert_terminate );
+	BT_REGISTER_API( 			"zombieshouldinertidle", 						&zombie_should_inert_idle );
+	BT_REGISTER_API( 			"zombieshouldinertwakeup", 					&zombie_should_inert_wakeup );
+	BT_REGISTER_API( 			"zombieshouldinertterminate", 				&zombie_inert_terminate );
 	
 	// ------- ZOMBIE SLIQUIFIER -----------//
-	BT_REGISTER_API( "zombieshouldslip", 									&zombie_should_slip );
-	BT_REGISTER_API( "zombieslippedactionstart", 						&zombie_slipped_action_start );
-	BT_REGISTER_API( "zombieslippedactionupdate", 				&zombie_slipped_action_update );
-	BT_REGISTER_API( "zombieslippedactionterminate", 				&zombie_slipped_action_terminate );
+	BT_REGISTER_API( 			"zombieshouldslip", 								&zombie_should_slip );
+	BT_REGISTER_API( 			"zombieslippedactionstart", 					&zombie_slipped_action_start );
+	BT_REGISTER_API( 			"zombieslippedactionupdate", 					&zombie_slipped_action_update );
+	BT_REGISTER_API( 			"zombieslippedactionterminate", 				&zombie_slipped_action_terminate );
 
 	// ------- ZOMBIE ACID -----------//
-	BT_REGISTER_API( "wasstunnedbyacid", 									&was_stunned_by_acid );
-	BT_REGISTER_API( "zombiestunacidactionend", 						&zombie_stun_acid_action_end );
+	BT_REGISTER_API( 			"wasstunnedbyacid", 								&was_stunned_by_acid );
+	BT_REGISTER_API( 			"zombiestunacidactionend", 					&zombie_stun_acid_action_end );
 
-	// ------- ZOMBIE NAPALM -----------//
-	// BT_REGISTER_API( "napalmcanexplode",                  			&napalm_can_explode );
-	// BT_REGISTER_API( "napalmexplodeinitialize",                  	&napalm_explode_initialize );
-	// BT_REGISTER_API( "napalmexplodeterminate",                  	&napalm_explode_terminate );
+	// ------- ZOMBIE SIDE STEP -----------//
+	BB_REGISTER_ATTRIBUTE( "_zombie_side_step_type", 					"none",		 											&zombie_side_step_type );
+	BT_REGISTER_API( 			"zombiesidestepservice", 						&zombie_side_step_service );
+	BT_REGISTER_API( 			"zombieshouldsidestep", 						&zombie_should_side_step );
+	BT_REGISTER_ACTION( 	"zombiesidestepaction", 							&zombie_side_step_action,						undefined, 												&zombie_side_step_terminate );
+}
 
-	// ------- ZOMBIE SONIC -----------//
-	// BT_REGISTER_API( "soniccanattack",                  				&sonic_can_attack );
-	// BT_REGISTER_API( "sonicattackinitialize",                  			&sonic_can_attack_initialize );
-	// BT_REGISTER_API( "sonicattackterminate",                  		&sonic_can_attack_terminate );
+function enable_side_step()
+{
+	self.n_stepped_direction 							= 0;
+	self.n_zombie_can_side_step 						= 1;
+	self.n_zombie_can_forward_step 				= 1;
+	self.n_zombie_side_step_step_chance 		= ZOMBIE_SIDE_STEP_CHANCE;
+	self.n_zombie_right_step_step_chance 		= ZOMBIE_RIGHT_STEP_CHANCE;
+	self.n_zombie_forward_step_step_chance 	= ZOMBIE_FORWARD_STEP_CHANCE;
+	self.n_zombie_reaction_interval 					= ZOMBIE_REACTION_INTERVAL;
+	self.n_zombie_min_reaction_dist 				= ZOMBIE_MIN_REACTION_DIST;
+	self.n_zombie_max_reaction_dist 				= ZOMBIE_MAX_REACTION_DIST;
+}
 
+function disable_ai_pain()
+{
+	self.a.disablepain = 1;
+	self.allowpain = 0;
+	self.a.disableReact = 1;
+	self.allowReact = 0;
+}
+
+function enable_ai_pain()
+{
+	self.a.disablepain = 0;
+	self.allowpain = 1;
+	self.a.disableReact = 0;
+	self.allowReact = 1;
+}
+
+function zombie_side_step_type()
+{
+	return self._zombie_side_step_type;
+}
+
+function zombie_side_step_service( behavior_tree_entity )
+{
+	if ( !isDefined ( behavior_tree_entity.n_last_side_step_time ) )
+		behavior_tree_entity.n_last_side_step_time	= getTime();
 	
+	if ( isDefined( behavior_tree_entity.enemy ) )
+	{
+		behavior_tree_entity.str_side_step_type = behavior_tree_entity zombie_get_side_step();
 	
+		if ( behavior_tree_entity.str_side_step_type != "none" )
+		{
+			behavior_tree_entity._juke_direction = behavior_tree_entity zombie_get_desired_side_step_direction();
+			
+			if ( behavior_tree_entity._juke_direction == "none" )
+				return;
+			
+			str_anim_name = behavior_tree_entity animMappingSearch( "anim_" + behavior_tree_entity.archetype + "_side_" + behavior_tree_entity.str_side_step_type + "_" + behavior_tree_entity._juke_direction );
+			if ( behavior_tree_entity mayMoveFromPointToPoint( behavior_tree_entity.origin, zombie_utility::getAnimEndPos( str_anim_name ) ) )
+			{
+				behavior_tree_entity._zombie_side_step_type = behavior_tree_entity.str_side_step_type + "_" + behavior_tree_entity._juke_direction;
+				behavior_tree_entity.n_zombie_side_step = 1;
+			}
+		}
+	}
+}
+
+function zombie_get_side_step()
+{
+	if ( self zombie_can_side_step() && isPlayer( self.enemy ) && self.enemy isLookingAt( self ) )
+	{
+		if ( IS_TRUE( self.n_zombie_can_side_step ) && randomFloat( 1 ) < self.n_zombie_side_step_step_chance )
+			return "step";
+		
+	}
+	return "none";
+}
+
+function zombie_can_side_step()
+{
+	if ( getTime() - self.n_last_side_step_time < self.n_zombie_reaction_interval )
+		return 0;
 	
+	self.n_last_side_step_time	= getTime();
+	if ( !isDefined( self.enemy ) )
+		return 0;
+	
+	if( IS_TRUE( self.missingLegs ) )
+		return 0;
+	
+	dist_sq_from_enemy = distanceSquared( self.origin, self.enemy.origin );
+
+	if ( dist_sq_from_enemy < ( self.n_zombie_min_reaction_dist * self.n_zombie_min_reaction_dist ) )
+		return 0;
+
+	if ( dist_sq_from_enemy > ( self.n_zombie_max_reaction_dist * self.n_zombie_max_reaction_dist ) )
+		return 0;
+
+	if ( !isDefined( self.pathgoalpos ) || distanceSquared( self.origin, self.pathgoalpos ) < ( self.n_zombie_min_reaction_dist * self.n_zombie_min_reaction_dist ) )
+		return 0;
+
+	if ( abs( self getMotionAngle() ) > 15 )
+		return 0;
+
+	yaw = zombie_utility::getYawToOrigin( self.enemy.origin );
+
+	if ( abs( yaw ) > 45 )
+		return 0;
+	
+	return 1;
+}
+
+function zombie_get_desired_side_step_direction()
+{
+	// if ( self.str_side_step_type == "roll" || self.str_side_step_type == "phase" )		
+	// 	return "forward";
+	
+	randomRoll = randomFloat( 1 );
+
+	if ( randomRoll < self.n_zombie_forward_step_step_chance )
+		return "forward";
+
+	if ( self.n_stepped_direction < 0 )
+		return "right";
+	else if ( self.n_stepped_direction > 0 )
+		return "left";
+	else if ( randomRoll < self.n_zombie_right_step_step_chance )
+		return "right";
+	else if ( randomRoll < self.n_zombie_right_step_step_chance * 2 )
+		return "left";
+	
+	return "none";
+}
+
+function zombie_should_side_step( behaviorTreeEntity )
+{
+    if ( IS_TRUE( behaviorTreeEntity.n_zombie_side_step ) )
+        return 1;
+	
+    return 0;
+}
+
+function zombie_side_step_action( behavior_tree_entity, asm_state_name )
+{
+	behavior_tree_entity disable_ai_pain();
+    AnimationStateNetworkUtility::RequestState( behavior_tree_entity, asm_state_name );
+        
+    return BHTN_RUNNING;
+}
+
+function zombie_side_step_terminate( behavior_tree_entity, asm_state_name )
+{
+	behavior_tree_entity enable_ai_pain();
+	behavior_tree_entity.n_zombie_side_step = undefined;
+    
+	if ( behavior_tree_entity._juke_direction == "left" )
+		behavior_tree_entity.n_stepped_direction--;
+	else
+		behavior_tree_entity.n_stepped_direction++;
+
+	behavior_tree_entity.n_last_side_step_time = getTime();
+
+    return BHTN_SUCCESS;    
 }
 
 function zombie_black_hole_bomb_pull_start( e_behavior_tree_entity, str_asm_state_name )

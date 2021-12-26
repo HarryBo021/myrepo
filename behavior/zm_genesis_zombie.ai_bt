@@ -937,6 +937,13 @@
                     "cooldownmin": 0,
                     "cooldownmax": 0
                 },
+				{
+                    "type": "condition_service_script",
+                    "id": "sidestepservice",
+                    "scriptFunction": "zombiesidestepservice",
+                    "cooldownMin": 0,
+                    "cooldownMax": 0
+                },
                 {
                     "type": "condition_service_script",
                     "id": "crawlercollisionservice",
@@ -1756,6 +1763,36 @@
                             ]
                         },
 						{
+							"type": "sequence",
+							"id": "ZombieSideStepBehavior",
+							"children": 
+							[
+								{
+									"type": "condition_script",
+									"id": "shouldSideStep",
+									"scriptFunction": "zombieShouldSideStep"
+								},
+								{
+									"type": "condition_script_negate",
+									"id": "shouldBeStunned",
+									"scriptFunction": "zombieShouldStun"
+								},
+								{
+									"type": "condition_script_negate",
+									"id": "zombieIsBeingGrappled",
+									"scriptFunction": "zombieIsBeingGrappled"
+								},
+								{
+									"type": "action",
+									"id": "sideStepAction",
+									"ActionName": "zombieSideStepAction",
+									"ASMStateName": "side_step@zombie",
+									"loopingAction": 0,
+									"actionTimeMax": 0
+								}
+							]
+						},
+						{
                             "type": "parallel",
                             "id": "whirlwindbehavior",
                             "children": 
@@ -2245,6 +2282,11 @@
                                     "id": "shouldjuke",
                                     "scriptfunction": "zombieshouldjuke"
                                 },
+								{
+									"type": "condition_script_negate",
+									"id": "shouldsidestep",
+									"scriptFunction": "zombieshouldsidestep"
+								},
                                 {
                                     "type": "condition_script_negate",
                                     "id": "shouldmeleeattack",

@@ -127,6 +127,10 @@
 				{
                     "animation_selector": "getup@zombie"
                 },
+				"side_step": 
+				{
+                    "animation_selector": "side_step@zombie"
+                },
                 "grab": 
 				{
                     "animation_selector": "grab@zombie"

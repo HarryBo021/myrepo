@@ -1,0 +1,16 @@
+// SETTINGS
+// ======================================================================================================
+#define	SONIC_ZOMBIE_MINIMUM_ROUND_WAIT							1					
+#define	SONIC_ZOMBIE_MAXIMUM_ROUND_WAIT							3			
+#define	SONIC_ZOMBIE_ROUND_REQUIREMENT								4	
+#define	SONIC_ZOMBIE_MAX_ALLOWED_START								1		
+#define	SONIC_ZOMBIE_MAX_ALLOWED_INCRIMENT						1		
+#define	SONIC_ZOMBIE_MAX_ALLOWED_CAP									3	
+#define	SONIC_ZOMBIE_MAX_AT_ONCE_CAP									3
+#define	SONIC_ZOMBIE_SCREAM_PLAYER_DAMAGE						10
+#define	SONIC_ZOMBIE_SCREAM_ATTACK_RADIUS						240
+#define	SONIC_ZOMBIE_SCREAM_DAMAGE_RADIUS						300
+#define	SONIC_ZOMBIE_SCREAM_ATTACK_DEBOUNCE_MIN			3
+#define	SONIC_ZOMBIE_SCREAM_ATTACK_DEBOUNCE_MAX			9
+#define	SONIC_ZOMBIE_SCREAM_DEATH_RANGE							480
+#define	SONIC_ZOMBIE_HEALTH_MULTIPLIER									2.5
