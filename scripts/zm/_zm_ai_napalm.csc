@@ -18,7 +18,7 @@
 
 #namespace zm_ai_napalm;
 
-REGISTER_SYSTEM_EX( "zm_ai_napalm", &__init__, &__main__, undefined )
+REGISTER_SYSTEM_EX( "zm_ai_napalm", &__init__, undefined, undefined )
 
 function __init__()
 {
@@ -63,7 +63,7 @@ function napalm_zombie_spawn( localclientnum, oldval, newval, bnewent, binitials
 		self thread napalm_glow_normal( localclientnum );
 		self thread _napalm_zombie_runeffects( localclientnum );
 		self thread _napalm_zombie_runsteameffects( localclientnum );
-		self thread napalm_set_glow( localclientnum );
+		self thread napalm_setup_glow( localclientnum );
 	}
 	else
 	{
@@ -76,7 +76,7 @@ function napalm_zombie_spawn( localclientnum, oldval, newval, bnewent, binitials
 	}
 }
 
-function napalm_set_glow( localclientnum )
+function napalm_setup_glow( localclientnum )
 {
 	self endon( "napalm_killed" );
 	while ( isDefined( self ) )

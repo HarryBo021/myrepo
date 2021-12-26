@@ -58,7 +58,7 @@ function __main__()
 	level.napalmexplodedamageradiuswet = NAPALM_ZOMBIE_EXPLODE_DAMAGE_RADIUS_WET;
 	level.napalmexplodedamagemin = NAPALM_ZOMBIE_EXPLODE_DAMAGE_MIN;
 	level.napalmhealthmultiplier = NAPALM_ZOMBIE_HEALTH_MULTIPLIER;
-	level.napalmlasrroundspawn = 0;
+	level.napalmlastroundspawn = 0;
 	level.napalmzombies = [];
 	level.napalm_zombie_spawners = getEntArray( "napalm_zombie_spawner", "script_noteworthy" );
 	level flag::init( "zombie_napalm_force_spawn" );
@@ -102,7 +102,7 @@ function can_spawn_napalm_zombie()
 	if ( isDefined( level.napalmzombiecount ) && level.napalmzombiecount > 0 )
 		return 0;
 	
-	if ( level.napalmlasrroundspawn >= level.round_number )
+	if ( level.napalmlastroundspawn >= level.round_number )
 		return 0;
 	
 	if ( forcespawn )
@@ -207,7 +207,7 @@ function napalm_zombie_spawn( animname_set )
 	self.custom_location = &napalm_zombie_do_spawn_rise;
 	zm_spawner::zombie_spawn_init( animname_set );
 	
-	level.napalmlasrroundspawn = level.round_number;
+	level.napalmlastroundspawn = level.round_number;
 	self.animname = "napalm_zombie";
 	self thread napalm_zombie_client_flag();
 	self.napalm_zombie_glowing = 0;
@@ -743,7 +743,7 @@ function napalm_clear_radius_fx_all_players()
 function exit_napalm_radius()
 {
 	self clientfield::set_to_player( "napalm_pstfx_burn", 0 );
-	self stopLoopound( 2 );
+	self stopLoopSound( 2 );
 	self.napalmradiuswarningtime = getTime();
 }
 
