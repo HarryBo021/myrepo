@@ -20,6 +20,7 @@
 #using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_weap_thundergun;
+#using scripts\zm\_hb21_zm_behavior;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_zm_ai_sonic.gsh;
@@ -43,7 +44,6 @@ function __init__()
 
 function __main__()
 {
-	
 	level.soniczombiesenabled = 1;
 	level.soniczombieminroundwait = SONIC_ZOMBIE_MINIMUM_ROUND_WAIT;
 	level.soniczombiemaxroundwait = SONIC_ZOMBIE_MAXIMUM_ROUND_WAIT;
@@ -65,14 +65,8 @@ function __main__()
 	array::thread_all(level.sonic_zombie_spawners, &spawner::add_spawn_function, &sonic_zombie_spawn);
 	array::thread_all(level.sonic_zombie_spawners, &spawner::add_spawn_function, &zombie_utility::round_spawn_failsafe);
 	zm_spawner::register_zombie_damage_callback(&_sonic_damage_callback);
-	level.zombie_total_set_func = &sonic_zombie_spawning_delay_setup;
+	hb21_zm_behavior::set_zombie_aat_override();
 	level thread sonic_zombie_spawning();
-}
-
-function sonic_zombie_spawning_delay_setup()
-{
-	level.zombiesLeftBeforeNapalmSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
-	level.zombiesLeftBeforeSonicSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
 }
 
 function registerbehaviorscriptfunctions()
@@ -117,6 +111,8 @@ function sonic_zombie_spawning()
 			spawner = array::random( spawner_list );
 			location = array::random( location_list );
 			ai = zombie_utility::spawn_zombie( spawner, spawner.targetname, location );
+			ai forceTeleport( location.origin );
+			ai.angles = location.angles;
 			if ( isDefined( ai ) )
 				ai.spawn_point_override = location;
 			

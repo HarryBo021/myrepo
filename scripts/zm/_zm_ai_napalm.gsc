@@ -17,6 +17,7 @@
 #using scripts\zm\_zm_score;
 #using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_utility;
+#using scripts\zm\_hb21_zm_behavior;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_zm_ai_napalm.gsh;
@@ -66,14 +67,8 @@ function __main__()
 	array::thread_all( level.napalm_zombie_spawners, &spawner::add_spawn_function, &zombie_utility::round_spawn_failsafe );
 	_napalm_initsounds();
 	zm_spawner::register_zombie_damage_callback( &_napalm_damage_callback );
+	hb21_zm_behavior::set_zombie_aat_override();
 	level thread napalm_zombie_spawning();
-	level.zombie_total_set_func = &napalm_zombie_spawning_delay_setup;
-}
-
-function napalm_zombie_spawning_delay_setup()
-{
-	level.zombiesLeftBeforeNapalmSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
-	level.zombiesLeftBeforeSonicSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
 }
 
 function registerbehaviorscriptfunctions()

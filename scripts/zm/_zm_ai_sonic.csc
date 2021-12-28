@@ -11,7 +11,7 @@ REGISTER_SYSTEM_EX( "zm_ai_sonic", &__init__, undefined, undefined )
 
 function __init__()
 {
-	visionset_mgr::register_overlay_info_style_blur( "zm_ai_screecher_blur", VERSION_SHIP, 15, .1, 0.25, 20 );
+	visionset_mgr::register_overlay_info_style_blur( "zm_ai_screecher_blur", VERSION_SHIP, 15, .1, .25, 20 );
 	init_clientfields();
 }
 

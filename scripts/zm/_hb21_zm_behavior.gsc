@@ -28,6 +28,7 @@
 #insert scripts\shared\ai\systems\blackboard.gsh;
 #insert scripts\shared\ai\utility.gsh;
 #insert scripts\shared\archetype_shared\archetype_shared.gsh;
+#insert scripts\shared\aat_zm.gsh;
 
 #insert scripts\zm\_zm_behavior.gsh;
 
@@ -41,7 +42,7 @@
 
 #namespace hb21_zm_behavior;
 
-REGISTER_SYSTEM( "hb21_zm_behavior", &__init__, undefined )
+REGISTER_SYSTEM_EX( "hb21_zm_behavior", &__init__, &__main__, undefined )
 
 function __init__()
 {
@@ -89,6 +90,39 @@ function __init__()
 	BT_REGISTER_API( 			"zombiesidestepservice", 						&zombie_side_step_service );
 	BT_REGISTER_API( 			"zombieshouldsidestep", 						&zombie_should_side_step );
 	BT_REGISTER_ACTION( 	"zombiesidestepaction", 							&zombie_side_step_action,						undefined, 												&zombie_side_step_terminate );
+}
+
+function __main__()
+{
+	level.zombie_total_set_func = &zombie_total_update;
+}
+
+function zombie_total_update()
+{
+	level.zombiesLeftBeforeNapalmSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
+	level.zombiesLeftBeforeSonicSpawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
+	level.zombie_total_update = 1;
+	level.zombies_left_before_astro_spawn = 1;
+	if ( level.zombie_total > 1 )
+		level.zombies_left_before_astro_spawn = randomIntRange( int( level.zombie_total * .25 ), int( level.zombie_total * .75 ) );
+	
+}
+
+function set_zombie_aat_override()
+{
+	level.aat[ ZM_AAT_BLAST_FURNACE_NAME ].validation_func = &zombie_aat_override;
+	level.aat[ ZM_AAT_DEAD_WIRE_NAME ].validation_func = &zombie_aat_override;
+	level.aat[ ZM_AAT_FIRE_WORKS_NAME ].validation_func = &zombie_aat_override;
+	level.aat[ ZM_AAT_THUNDER_WALL_NAME ].validation_func = &zombie_aat_override;
+	level.aat[ ZM_AAT_TURNED_NAME ].validation_func = &zombie_aat_override;
+}
+
+function zombie_aat_override()
+{
+	if ( isDefined( self ) && isDefined( self.animName ) && ( self.animName == "astro_zombie" || self.animName == "sonic_zombie" || self.animName == "napalm_zombie" ) )
+		return 0;
+	
+	return 1;
 }
 
 function enable_side_step()
