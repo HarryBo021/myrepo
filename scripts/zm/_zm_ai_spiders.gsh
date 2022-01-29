@@ -1,0 +1,12 @@
+#define SPIDERS_PER_ROUND_PER_PLAYER_BEFORE_ROUND_3 						6
+#define SPIDERS_PER_ROUND_PER_PLAYER 													8
+#define SPIDERS_MAX_AT_ONE_TIME			 													13
+#define SPIDERS_MAX_AT_ONE_TIME_PER_PLAYER											4
+#define SPIDERS_FIRST_SPIDER_ROUND_HEALTH											400
+#define SPIDERS_SECOND_SPIDER_ROUND_HEALTH										900
+#define SPIDERS_THIRD_SPIDER_ROUND_HEALTH											1300
+#define SPIDERS_LATER_SPIDER_ROUND_HEALTH											1600
+#define SPIDERS_START_ROUND_MIN															4
+#define SPIDERS_START_ROUND_MAX															7
+#define SPIDERS_NEXT_ROUND_MIN																4
+#define SPIDERS_NEXT_ROUND_MAX																6

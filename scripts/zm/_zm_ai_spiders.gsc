@@ -1,50 +1,59 @@
 #using scripts\codescripts\struct;
-
 #using scripts\shared\aat_shared;
+#using scripts\shared\ai\zombie_utility;
+#using scripts\shared\ai_shared;
 #using scripts\shared\array_shared;
-#using scripts\shared\animation_shared;
 #using scripts\shared\callbacks_shared;
+#using scripts\shared\clientfield_shared;
 #using scripts\shared\flag_shared;
+#using scripts\shared\flagsys_shared;
 #using scripts\shared\fx_shared;
+#using scripts\shared\hud_util_shared;
+#using scripts\shared\laststand_shared;
 #using scripts\shared\scene_shared;
 #using scripts\shared\spawner_shared;
 #using scripts\shared\system_shared;
 #using scripts\shared\trigger_shared;
 #using scripts\shared\util_shared;
-#using scripts\shared\vehicle_shared;
-#using scripts\shared\clientfield_shared;
 #using scripts\shared\vehicle_ai_shared;
-#using scripts\shared\visionset_mgr_shared;
-#using scripts\shared\ai_shared;
+#using scripts\shared\vehicle_shared;
 #using scripts\shared\vehicles\_spider;
-
-#insert scripts\shared\shared.gsh;
-#insert scripts\shared\weapons\grapple.gsh;
-
+#using scripts\shared\visionset_mgr_shared;
 #using scripts\zm\_util;
 #using scripts\zm\_zm;
 #using scripts\zm\_zm_audio;
+#using scripts\zm\_zm_bgb_machine;
+#using scripts\zm\_zm_devgui;
+#using scripts\zm\_zm_laststand;
+#using scripts\zm\_zm_magicbox;
 #using scripts\zm\_zm_net;
+#using scripts\zm\_zm_perk_widows_wine;
+#using scripts\zm\_zm_power;
 #using scripts\zm\_zm_powerups;
 #using scripts\zm\_zm_score;
 #using scripts\zm\_zm_spawner;
 #using scripts\zm\_zm_stats;
+#using scripts\zm\_zm_unitrigger;
 #using scripts\zm\_zm_utility;
-
-#using scripts\shared\ai\zombie_utility;
-
-#insert scripts\shared\archetype_shared\archetype_shared.gsh;
-#insert scripts\zm\_zm_utility.gsh;
-#insert scripts\shared\aat_zm.gsh;
+#using scripts\zm\_zm_zonemgr;
+#insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
+#insert scripts\zm\_zm_utility.gsh;
 #insert scripts\zm\_zm_ai_spiders.gsh;
+#insert scripts\shared\aat_zm.gsh;
 
-#precache( "fx", "dlc2/island/fx_spider_death_explo_sm" );
-#precache( "fx", "dlc2/island/fx_web_bgb_reweb" );
-#precache( "fx", "dlc2/island/fx_web_perk_machine_reweb" );
-#precache( "fx", "dlc2/island/fx_spider_spit_projectile_reweb" );
-#precache( "fx", "dlc2/island/fx_web_impact_player_melee" );
-#precache( "fx", "dlc2/island/fx_web_impact_spider_crawl" );
+#precache("model", "p7_zm_isl_web_vending_doubletap2");
+#precache("model", "p7_zm_isl_web_vending_revive");
+#precache("model", "p7_zm_isl_web_vending_sleight");
+#precache("model", "p7_zm_isl_web_vending_marathon");
+#precache("model", "p7_zm_isl_web_vending_jugg");
+#precache("model", "p7_zm_isl_web_vending_three_gun");
+#precache("fx", "dlc2/island/fx_spider_death_explo_sm");
+#precache("fx", "dlc2/island/fx_web_bgb_reweb");
+#precache("fx", "dlc2/island/fx_web_perk_machine_reweb");
+#precache("fx", "dlc2/island/fx_spider_spit_projectile_reweb");
+#precache("fx", "dlc2/island/fx_web_impact_player_melee");
+#precache("fx", "dlc2/island/fx_web_impact_spider_crawl");
 	
 #using_animtree( "generic" );
 	
@@ -54,534 +63,475 @@ REGISTER_SYSTEM_EX( "zm_ai_spiders", &__init__, &__main__, undefined )
 
 function __init__()
 {
-	zm_audio::musicState_Create("spider_roundstart", 3, "island_spider_roundstart_1");
-	zm_audio::musicState_Create("spider_roundend", 3, "island_spider_roundend_1");
-	clientfield::register("world", "force_stream_spiders", 9001, 1, "int");
-	level thread web_init();
+	clientfield::register( "toplayer", "spider_round_fx", VERSION_SHIP, 1, "counter" );
+	clientfield::register( "toplayer", "spider_round_ring_fx", VERSION_SHIP, 1, "counter" );
+	clientfield::register( "toplayer", "spider_end_of_round_reset", VERSION_SHIP, 1, "counter" );
+	clientfield::register( "scriptmover", "set_fade_material", VERSION_SHIP, 1, "int" );
+	clientfield::register( "scriptmover", "web_fade_material", VERSION_SHIP, 3, "float" );
+	clientfield::register( "missile", "play_grenade_stuck_in_web_fx", VERSION_SHIP, 1, "int" );
+	clientfield::register( "scriptmover", "play_spider_web_tear_fx", VERSION_SHIP, getMinBitCountForNum( 4 ), "int" );
+	clientfield::register( "scriptmover", "play_spider_web_tear_complete_fx", VERSION_SHIP, getMinBitCountForNum( 4 ), "int" );
+	clientfield::register( "world", "force_stream_spiders", VERSION_SHIP, 1, "int" );
 	
-	level.spider_melee_range = 200;
-	level.n_spider_multi = 1;
-	level flag::init("spider_round");
-	init_effects();
-	init();
-	callback::on_spawned(&spider_watch_grenade_fire);
-	callback::on_spawned(&spider_watch_grenade_launcher_fire);
-	callback::on_spawned(&spider_watch_missile_fire);
-	callback::on_spawned(&function_83a70ec3);
-	callback::on_spawned(&function_d717ef02);
-	callback::on_connect(&function_3a14f1bc);
+	zm_audio::musicState_Create( "spider_roundstart", 3, "island_spider_roundstart_1" );
+	zm_audio::musicState_Create( "spider_roundend", 3, "island_spider_roundend_1" );
+	
+	level.spiders_enabled = 1;
+	level.spider_rounds_enabled = 0;
+	level.spider_round_count = 1;
+	level.spider_web_chance = 30;
+	level.spider_spawners = [];
+	level.n_spider_melee_range = 200;
+	level.n_spider_round_count = 1;
+	level.aat[ ZM_AAT_TURNED_NAME ].immune_trigger[ "spider" ] = 1;
+	level.aat[ ZM_AAT_THUNDER_WALL_NAME ].immune_result_indirect[ "spider" ] = 1;
+	level.aat[ ZM_AAT_DEAD_WIRE_NAME ].immune_trigger[ "spider" ] = 1;
+	level.melee_range_sav = getdvarstring( "ai_meleeRange" );
+	level.melee_width_sav = getdvarstring( "ai_meleeWidth" );
+	level.melee_height_sav = getdvarstring( "ai_meleeHeight" );
+	
+	level flag::init( "spider_round" );
+	level flag::init( "spider_clips" );
+	level flag::init( "spider_round_in_progress" );
+	
+	level._effect[ "spider_gib" ] = "dlc2/island/fx_spider_death_explo_sm";
+	level._effect[ "spider_web_bgb_reweb" ] = "dlc2/island/fx_web_bgb_reweb";
+	level._effect[ "spider_web_perk_machine_reweb" ] = "dlc2/island/fx_web_perk_machine_reweb";
+	level._effect[ "spider_web_doorbuy_reweb" ] = "dlc2/island/fx_web_perk_machine_reweb";
+	level._effect[ "spider_web_spit_reweb" ] = "dlc2/island/fx_spider_spit_projectile_reweb";
+	level._effect[ "spider_web_melee_hit" ] = "dlc2/island/fx_web_impact_player_melee";
+	level._effect[ "spider_web_spider_enter" ] = "dlc2/island/fx_web_impact_spider_crawl";
+	level._effect[ "spider_web_spider_leave" ] = "dlc2/island/fx_web_impact_spider_crawl";
+	
+	scene::add_scene_func( "scene_zm_dlc2_spider_web_engage", &spider_scene_delete, "done" );
+	scene::add_scene_func( "scene_zm_dlc2_spider_burrow_out_of_ground", &spider_scene_delete, "done" );
+	visionset_mgr::register_info( "visionset", "zm_isl_parasite_spider_visionset", VERSION_SHIP, 33, 16, 0, &visionset_mgr::ramp_in_out_thread, 0 );
+	
+	spider_spawner_init();
+	
+	level thread spider_clip_monitor();
+	level thread spiders_init_webs();
+	
+	callback::on_spawned( &spider_webs_grenade_watcher );
+	callback::on_spawned( &spider_webs_grenade_launcher_watcher );
+	callback::on_spawned( &spider_webs_missile_watcher );
+	callback::on_spawned( &spider_last_stand_cleanup );
+	callback::on_spawned( &spider_score_round_cap_reset );
+	callback::on_connect( &spider_player_on_connect );
+}
+
+function spiders_init_webs()
+{
+	level flag::wait_till( "start_zombie_round_logic" );
+	level thread spider_web_doors_and_bgbs_init();
+	level thread spider_web_perks_init();
 }
 
 function __main__()
 {
-	register_clientfields();
 }
 
-function register_clientfields()
+function spider_player_on_connect()
 {
-	clientfield::register("toplayer", "spider_round_fx", 9000, 1, "counter");
-	clientfield::register("toplayer", "spider_round_ring_fx", 9000, 1, "counter");
-	clientfield::register("toplayer", "spider_end_of_round_reset", 9000, 1, "counter");
-	clientfield::register("scriptmover", "set_fade_material", 9000, 1, "int");
-	clientfield::register("scriptmover", "web_fade_material", 9000, 3, "float");
-	clientfield::register("missile", "play_grenade_stuck_in_web_fx", 9000, 1, "int");
-	clientfield::register("scriptmover", "play_spider_web_tear_fx", 9000, GetMinBitCountForNum(4), "int");
-	clientfield::register("scriptmover", "play_spider_web_tear_complete_fx", 9000, GetMinBitCountForNum(4), "int");
+	self.b_web_tear_done = 0;
+	self.b_web_tear_perk_done = 0;
+	self.b_web_tear_with_launcher_done = 0;
+	self.b_web_tear_with_grenade_done = 0;
+	self.b_web_tear_with_raygun_done = 0;
+	self.b_web_tear_with_mirg_done = 0;
 }
 
-function function_3a14f1bc()
+function spider_last_stand_cleanup()
 {
-	self.var_7f3c8431 = 0;
-	self.var_f795ee17 = 0;
-	self.var_86009342 = 0;
-	self.var_3b4423fd = 0;
-	self.var_ee8976c8 = 0;
-	self.var_5c159c87 = 0;
-}
-
-function function_83a70ec3()
-{
-	self endon("disconnect");
-	while(1)
+	self endon( "disconnect" );
+	while ( 1 )
 	{
-		self waittill("bled_out");
-		if(level flag::get("spider_round_in_progress"))
+		self waittill( "bled_out" );
+		if ( level flag::get( "spider_round_in_progress" ) )
 		{
-			self waittill("spawned_player");
-			level flag::wait_till_clear("spider_round_in_progress");
+			self waittill( "spawned_player" );
+			level flag::wait_till_clear( "spider_round_in_progress" );
 			util::wait_network_frame();
-			self clientfield::increment_to_player("spider_end_of_round_reset", 1);
+			self clientfield::increment_to_player( "spider_end_of_round_reset", 1 );
 		}
 	}
 }
 
-function init()
+function spider_scene_delete( a_ents )
 {
-	level.spider_enabled = 1;
-	level.spider_rounds_enabled = 0;
-	level.spider_round_count = 1;
-	// level.var_42034f6a = 30;
-	level.spider_spawners = [];
-	level flag::init("spider_clips");
-	level flag::init("spider_round_in_progress");
-	level.AAT["zm_aat_turned"].immune_trigger["spider"] = 1;
-	level.AAT["zm_aat_thunder_wall"].immune_result_indirect["spider"] = 1;
-	level.AAT["zm_aat_dead_wire"].immune_trigger["spider"] = 1;
-	level.melee_range_sav = GetDvarString("ai_meleeRange");
-	level.melee_width_sav = GetDvarString("ai_meleeWidth");
-	level.melee_height_sav = GetDvarString("ai_meleeHeight");
-	spider_spawner_init();
-	level thread spider_clips_logic();
-	scene::add_scene_func("scene_zm_dlc2_spider_web_engage", &function_1c624caf, "done");
-	scene::add_scene_func("scene_zm_dlc2_spider_burrow_out_of_ground", &function_1c624caf, "done");
-	visionset_mgr::register_info("visionset", "zm_isl_parasite_spider_visionset", 9000, 33, 16, 0, &visionset_mgr::ramp_in_out_thread, 0);
-}
-
-function function_1c624caf(a_ents)
-{
-	if(self.model === "tag_origin")
-	{
+	if ( self.model === "tag_origin" )
 		self zm_utility::self_delete();
-	}
+	
 }
 
-function init_effects()
-{
-	level._effect["spider_gib"] 										= "dlc2/island/fx_spider_death_explo_sm";
-	level._effect["spider_web_bgb_reweb"] 					= "dlc2/island/fx_web_bgb_reweb";
-	level._effect["spider_web_perk_machine_reweb"] 	= "dlc2/island/fx_web_perk_machine_reweb";
-	level._effect["spider_web_doorbuy_reweb"] 			= "dlc2/island/fx_web_perk_machine_reweb";
-	level._effect["spider_web_spit_reweb"] 					= "dlc2/island/fx_spider_spit_projectile_reweb";
-	level._effect["spider_web_melee_hit"] 					= "dlc2/island/fx_web_impact_player_melee";
-	level._effect["spider_web_spider_enter"] 				= "dlc2/island/fx_web_impact_spider_crawl";
-	level._effect["spider_web_spider_leave"] 				= "dlc2/island/fx_web_impact_spider_crawl";
-}
-
-function spider_clips_logic()
+function spider_clip_monitor()
 {
 	clips_on = 0;
-	level.a_spider_clips = GetEntArray("spider_clips", "targetname");
-	while(1)
+	level.spider_clips = getEntArray( "spider_clips", "targetname" );
+	while ( 1 )
 	{
-		for(i = 0; i < level.a_spider_clips.size; i++)
-		{
-			level.a_spider_clips[i] connectpaths();
-		}
-		level flag::wait_till("spider_clips");
-		if(isdefined(level.spider_clips_disabled) && level.spider_clips_disabled == 1)
-		{
+		for ( i = 0; i < level.spider_clips.size; i++ )
+			level.spider_clips[ i ] connectpaths();
+		
+		level flag::wait_till( "spider_clips" );
+		if ( IS_TRUE( level.no_spider_clip ) )
 			return;
-		}
-		for(i = 0; i < level.a_spider_clips.size; i++)
+		
+		for ( i = 0; i < level.spider_clips.size; i++ )
 		{
-			level.a_spider_clips[i] disconnectpaths();
+			level.spider_clips[ i ] disconnectPaths();
 			util::wait_network_frame();
 		}
-		b_spider_alive = 1;
-		while(b_spider_alive || level flag::get("spider_round"))
+		b_spider_is_alive = 1;
+		while ( b_spider_is_alive || level flag::get( "spider_round" ) )
 		{
-			b_spider_alive = 0;
-			a_spiders = GetVehicleArray("zombie_spider", "targetname");
-			for(i = 0; i < a_spiders.size; i++)
+			b_spider_is_alive = 0;
+			a_spiders = getVehicleArray( "zombie_spider", "targetname" );
+			for ( i = 0; i < a_spiders.size; i++ )
 			{
-				if(isalive(a_spiders[i]))
-				{
-					b_spider_alive = 1;
-				}
+				if ( isAlive( a_spiders[ i ] ) )
+					b_spider_is_alive = 1;
+				
 			}
-			wait(1);
+			wait 1;
 		}
-		level flag::clear("spider_clips");
-		wait(1);
+		level flag::clear( "spider_clips" );
+		wait 1;
 	}
 }
 
 function enable_spider_rounds()
 {
 	level.spider_rounds_enabled = 1;
-	if(!isdefined(level.spider_round_track_override))
-	{
+	if ( !isDefined( level.spider_round_track_override ) )
 		level.spider_round_track_override = &spider_round_tracker;
-	}
-	level thread [[level.spider_round_track_override]]();
+	
+	level thread [ [ level.spider_round_track_override ] ]();
 }
 
 function spider_spawner_init()
 {
-	level.spider_spawners = GetEntArray("zombie_spider_spawner", "script_noteworthy");
-	later_spider = GetEntArray("later_round_spider_spawners", "script_noteworthy");
-	level.spider_spawners = ArrayCombine(level.spider_spawners, later_spider, 1, 0);
-	if(level.spider_spawners.size == 0)
-	{
+	level.spider_spawners = getEntArray( "zombie_spider_spawner", "script_noteworthy" );
+	later_spiders = getEntArray( "later_round_spider_spawners", "script_noteworthy" );
+	level.a_spider_spawners = arraycombine( level.spider_spawners, later_spiders, 1, 0 );
+	
+	if ( level.spider_spawners.size == 0 )
 		return;
-	}
-	for(i = 0; i < level.spider_spawners.size; i++)
+	
+	for ( i = 0; i < level.spider_spawners.size; i++ )
 	{
-		if(zm_spawner::is_spawner_targeted_by_blocker(level.spider_spawners[i]))
+		if ( zm_spawner::is_spawner_targeted_by_blocker( level.spider_spawners[ i ] ) )
 		{
-			level.spider_spawners[i].is_enabled = 0;
+			level.spider_spawners[ i ].is_enabled = 0;
 			continue;
 		}
-		level.spider_spawners[i].is_enabled = 1;
-		level.spider_spawners[i].script_forcespawn = 1;
+		level.spider_spawners[ i ].is_enabled = 1;
+		level.spider_spawners[ i ].script_forcespawn = 1;
 	}
-	/#
-		Assert(level.spider_spawners.size > 0);
-	#/
-	Array::thread_all(level.spider_spawners, &spawner::add_spawn_function, &spider_init);
+	
+	array::thread_all( level.spider_spawners, &spawner::add_spawn_function, &spider_init );
 }
 
 function spider_init()
 {
 	self.targetname = "zombie_spider";
 	self.b_is_spider = 1;
-	spider_set_max_health();
-	self.maxhealth = level.n_spider_max_health;
+	spider_health_increase();
+	self.maxhealth = level.n_spider_health;
 	self.health = self.maxhealth;
 	self.no_gib = 1;
 	self.no_eye_glow = 1;
-	self.custom_player_shellshock = &spider_custom_shellshock;
+	self.custom_player_shellshock = &spider_custom_player_shellshock;
 	self.team = level.zombie_team;
-	self.missingLegs = 0;
+	self.missinglegs = 0;
 	self.thundergun_knockdown_func = &spider_thundergun_knockdown;
 	self.lightning_chain_immune = 1;
 	self.heroweapon_kill_power = 1;
 	self thread zombie_utility::round_spawn_failsafe();
-	self thread spider_set_damage_weapon();
-	self thread spider_death_event();
-	self playsound("zmb_spider_spawn");
-	self thread spider_play_ambient_voals();
+	self thread spider_set_damage_type();
+	self thread spider_death();
+	self playsound( "zmb_spider_spawn" );
+	self thread spider_stalk_audio();
 }
 
-function spider_set_damage_weapon()
+function spider_set_damage_type()
 {
-	self endon("death");
-	while(1)
+	self endon( "death" );
+	while ( 1 )
 	{
-		self waittill("damage", n_amount, e_attacker, v_direction, v_hit_location, str_mod);
-		if(isPlayer(e_attacker))
+		self waittill( "damage", n_amount, e_attacker, v_direction, v_hit_location, str_mod );
+		if ( isPlayer( e_attacker ) )
 		{
 			e_attacker.use_weapon_type = str_mod;
-			self thread zm_powerups::check_for_instakill(e_attacker, str_mod, v_hit_location);
+			self thread zm_powerups::check_for_instakill( e_attacker, str_mod, v_hit_location );
 		}
 	}
 }
 
-function spider_thundergun_knockdown(e_player, gib)
+function spider_thundergun_knockdown( e_player, gib )
 {
-	self endon("death");
-	n_damage = Int(self.maxhealth * 0.5);
-	self DoDamage(n_damage, self.origin, e_player);
+	self endon( "death" );
+	n_damage = int( self.maxhealth * .5 );
+	self doDamage( n_damage, self.origin, e_player );
 }
 
-function function_a3f4adb()
+function spider_stalk_audio()
 {
-}
-
-function spider_play_ambient_voals()
-{
-	self endon("death");
-	wait(RandomFloatRange(3, 6));
-	while(1)
+	self endon( "death" );
+	wait randomFloatRange( 3, 6 );
+	while ( 1 )
 	{
-		self PlaySoundOnTag("zmb_spider_vocals_ambient", "tag_eye");
-		wait(RandomFloatRange(2, 6));
+		self playSoundOnTag( "zmb_spider_vocals_ambient", "tag_eye" );
+		wait randomFloatRange( 2, 6 );
 	}
 }
 
-function spider_death_event()
+function spider_death()
 {
-	self waittill("death", e_attacker);
-	if(get_current_spider_count() == 0 && level.zombie_total == 0)
+	self waittill( "death", e_attacker );
+	if ( get_current_spider_count() == 0 && level.zombie_total == 0 )
 	{
-		if(!isdefined(level.zm_ai_round_over) || [[level.zm_ai_round_over]]())
+		if ( !isDefined( level.zm_ai_round_over ) || [ [ level.zm_ai_round_over ] ]() )
 		{
 			level.last_ai_origin = self.origin;
-			level notify("last_ai_down", self);
+			level notify( "last_ai_down", self );
 		}
 	}
-	if(isPlayer(e_attacker))
+	if ( isPlayer( e_attacker ) )
 	{
-		if(!(isdefined(self.deathpoints_already_given) && self.deathpoints_already_given))
-		{
-			e_attacker zm_score::player_add_points("death_spider");
-		}
-		if(isdefined(level.hero_power_update))
-		{
-			[[level.hero_power_update]](e_attacker, self);
-		}
-		e_attacker notify("spider_killed");
-		e_attacker zm_stats::increment_client_stat("zspiders_killed");
-		e_attacker zm_stats::increment_player_stat("zspiders_killed");
+		if ( !IS_TRUE( self.deathpoints_already_given ) )
+			e_attacker zm_score::player_add_points( "death_spider" );
+		
+		if ( isDefined( level.hero_power_update ) )
+			[ [ level.hero_power_update ] ]( e_attacker, self );
+		
+		e_attacker notify( "player_killed_spider" );
+		e_attacker zm_stats::increment_client_stat( "zspiders_killed" );
+		e_attacker zm_stats::increment_player_stat( "zspiders_killed" );
 	}
-	if(isdefined(e_attacker) && isai(e_attacker))
+	if ( isDefined( e_attacker ) && isAi( e_attacker ) )
 	{
-		e_attacker notify("killed", self);
+		e_attacker notify( "killed", self );
 	}
-	if(isdefined(self))
+	if ( isDefined( self ) )
 	{
-		self StopLoopSound();
-		self thread spider_play_gib_fx(self.origin);
+		self stopLoopSound();
+		self thread spider_do_death_fx( self.origin );
 	}
 }
 
-function spider_play_gib_fx(v_pos)
+function spider_do_death_fx( v_pos )
 {
-	self thread FX::Play("spider_gib", v_pos);
+	self thread fx::play( "spider_gib", v_pos );
 }
 
 function spider_round_tracker()
 {
-	level.next_spider_round = level.round_number + randomIntRange(4, 7);
+	level.n_next_spider_round = level.round_number + randomIntRange( SPIDERS_START_ROUND_MIN, SPIDERS_START_ROUND_MAX );
 	
-	// level.var_5ccd3661 = level.next_spider_round;
 	old_spawn_func = level.round_spawn_func;
 	old_wait_func = level.round_wait_func;
-	while(1)
+	
+	while ( 1 )
 	{
-		level waittill("between_round_over");
-		/#
-			if(GetDvarInt("force_spider") > 0)
-			{
-				level.next_spider_round = level.round_number;
-			}
-		#/
-		if(level.round_number == level.next_spider_round)
+		level waittill( "between_round_over" );
+		
+		if ( level.round_number == level.n_next_spider_round )
 		{
-			level.sndMusicSpecialRound = 1;
+			level.sndmusicspecialround = 1;
 			old_spawn_func = level.round_spawn_func;
 			old_wait_func = level.round_wait_func;
 			spider_round_start();
 			level.round_spawn_func = &spider_round_spawning;
 			level.round_wait_func = &spider_round_wait_func;
-			level.next_spider_round = level.round_number + randomIntRange(4, 6);
-			/#
-				GetPlayers()[0] iprintln("Next spider round: " + level.next_spider_round);
-			#/
+			level.n_next_spider_round = level.round_number + randomIntRange( SPIDERS_NEXT_ROUND_MIN, SPIDERS_NEXT_ROUND_MAX );
 		}
-		else if(level flag::get("spider_round"))
+		else if ( level flag::get( "spider_round" ) )
 		{
 			spider_round_stop();
 			level.round_spawn_func = old_spawn_func;
 			level.round_wait_func = old_wait_func;
-			level.n_spider_multi = level.n_spider_multi + 1;
+			level.n_spider_round_count = level.n_spider_round_count + 1;
 		}
 	}
 }
 
 function spider_round_fx()
 {
-	foreach(player in level.players)
+	foreach ( player in level.players )
 	{
-		player clientfield::increment_to_player("spider_round_fx");
-		player clientfield::increment_to_player("spider_round_ring_fx");
+		player clientfield::increment_to_player( "spider_round_fx" );
+		player clientfield::increment_to_player( "spider_round_ring_fx" );
 	}
-	visionset_mgr::activate("visionset", "zm_isl_parasite_spider_visionset", undefined, 1.5, &spider_wait_till_round_over, 2);
+	visionset_mgr::activate( "visionset", "zm_isl_parasite_spider_visionset", undefined, 1.5, &spider_round_waittill_end, 2 );
 }
 
-function spider_wait_till_round_over()
+function spider_round_waittill_end()
 {
-	level flag::wait_till_clear("spider_round_in_progress");
+	level flag::wait_till_clear( "spider_round_in_progress" );
 }
 
 function spider_round_spawning()
 {
-	level endon("intermission");
-	level endon("end_of_round");
-	level endon("restart_round");
-	for(i = 0; i < level.players.size; i++)
-	{
-		level.players[i].hunted_by = 0;
-	}
-	/*
-	/#
-		level endon("kill_round");
-		if(GetDvarInt("Dev Block strings are not supported") == 2 || GetDvarInt("Dev Block strings are not supported") >= 4)
-		{
-			return;
-		}
-	#/
-	*/
-	if(level.intermission)
-	{
+	level endon( "intermission" );
+	level endon( "end_of_round" );
+	level endon( "restart_round" );
+	
+	for ( i = 0; i < level.players.size; i++ )
+		level.players[ i ].hunted_by = 0;
+	
+	if ( level.intermission )
 		return;
-	}
-	level flag::set("spider_round_in_progress");
+	
+	level flag::set( "spider_round_in_progress" );
 	level thread spider_round_aftermath();
-	Array::thread_all(level.players, &spider_play_sound_start_sound);
-	wait(1);
-	level notify("hash_9c49b4a8"); // spider_round_start
+	array::thread_all( level.players, &play_spider_round );
+	
+	wait 1;
+	level notify( "enable_spider_round_webs" );
 	spider_round_fx();
-	wait(4);
-	spider_get_max = spider_get_max();
-	/*
-	/#
-		if(GetDvarString("Dev Block strings are not supported") != "Dev Block strings are not supported")
-		{
-			spider_get_max = GetDvarInt("Dev Block strings are not supported");
-		}
-	#/
-	*/
-	level.zombie_total = spider_get_max;
-	while(1)
+	wait 4;
+	n_spider_total = get_spiders_round_total();
+	
+	level.zombie_total = n_spider_total;
+	while ( 1 )
 	{
-		while(level.zombie_total > 0)
+		while ( level.zombie_total > 0 )
 		{
-			if(isdefined(level.bzm_worldPaused) && level.bzm_worldPaused)
+			if ( IS_TRUE( level.bzm_worldpaused ) )
 			{
 				util::wait_network_frame();
 				continue;
 			}
-			spawn_spider();
+			spawn_spiders();
 			util::wait_network_frame();
 		}
 		util::wait_network_frame();
 	}
 }
 
-function spider_get_max()
+function get_spiders_round_total()
 {
-	if(level.n_spider_multi < 3)
-	{
-		n_wave_count = level.players.size * 6;
-	}
+	if ( level.n_spider_round_count < 3 )
+		n_wave_count = level.players.size * SPIDERS_PER_ROUND_PER_PLAYER;
 	else
-	{
-		n_wave_count = level.players.size * 8;
-	}
+		n_wave_count = level.players.size * SPIDERS_PER_ROUND_PER_PLAYER;
+	
 	return n_wave_count;
 }
 
-function spawn_spider()
+function spawn_spiders()
 {
-	while(!spider_should_spawn())
-	{
-		wait(0.1);
-	}
+	while ( !can_we_spawn_spiders() )
+		wait .1;
+	
 	s_spawn_loc = undefined;
 	e_favorite_enemy = get_favorite_enemy();
-	if(!isdefined(e_favorite_enemy))
+	if ( !isDefined( e_favorite_enemy ) )
 	{
-		wait(RandomFloatRange(0.3333333, 0.6666667));
+		wait randomFloatRange( .3333333, .6666667 );
 		return;
 	}
-	if(isdefined(level.ptr_custom_spider_get_spawn_point))
-	{
-		s_spawn_loc = [[level.ptr_custom_spider_get_spawn_point]](e_favorite_enemy);
-	}
+	if ( isDefined( level.spider_spawn_func ) )
+		s_spawn_loc = [ [ level.spider_spawn_func ] ]( e_favorite_enemy );
 	else
+		s_spawn_loc = spider_spawn_logic( e_favorite_enemy );
+	
+	if ( !isDefined( s_spawn_loc ) )
 	{
-		s_spawn_loc = spider_get_spawn_point(e_favorite_enemy);
-	}
-	if(!isdefined(s_spawn_loc))
-	{
-		wait(RandomFloatRange(0.3333333, 0.6666667));
+		wait randomFloatRange( .3333333, .6666667 );
 		return;
 	}
-	if(level flag::exists("spiders_from_mars_round") && level flag::get("spiders_from_mars_round") && isdefined(level.spider_mars_spawners))
+	
+	ai = zombie_utility::spawn_zombie( level.spider_spawners[ 0 ] );
+	
+	if ( isDefined( ai ) )
 	{
-		ai = zombie_utility::spawn_zombie(level.spider_mars_spawners[0]);
-	}
-	else
-	{
-		ai = zombie_utility::spawn_zombie(level.spider_spawners[0]);
-	}
-	if(isdefined(ai))
-	{
-		s_spawn_loc thread spider_spawn_animation(ai, s_spawn_loc);
+		s_spawn_loc thread spider_spawn_fx( ai, s_spawn_loc );
 		level.zombie_total--;
-		level thread zm_spawner::zombie_death_event(ai);
-		if(isdefined(level.ptr_spider_custom_init))
-		{
-			ai thread [[level.ptr_spider_custom_init]]();
-		}
-		spider_spawn_delay();
+		level thread zm_spawner::zombie_death_event( ai );
+		if ( isDefined( level.ptr_spider_post_spawn ) )
+			ai thread [ [ level.ptr_spider_post_spawn ] ]();
+		
+		waiting_for_next_spider_spawn();
 	}
 }
 
-function spider_should_spawn()
+function can_we_spawn_spiders()
 {
-	a_current_spider_amount = get_current_spider_count();
-	b_spider_count_at_max = a_current_spider_amount >= 13;
-	b_spider_count_per_player_at_max = a_current_spider_amount >= level.players.size * 4;
-	if(b_spider_count_at_max || b_spider_count_per_player_at_max || !level flag::get("spawn_zombies"))
-	{
+	n_spider_alive = get_current_spider_count();
+	b_spider_count_at_max = n_spider_alive >= SPIDERS_MAX_AT_ONE_TIME;
+	n_spider_count_per_player_at_max = n_spider_alive >= ( level.players.size * SPIDERS_MAX_AT_ONE_TIME_PER_PLAYER );
+	if ( b_spider_count_at_max || n_spider_count_per_player_at_max || !level flag::get( "spawn_zombies" ) )
 		return 0;
-	}
+	
 	return 1;
 }
 
 function get_current_spider_count()
 {
-	a_spiders = GetEntArray("zombie_spider", "targetname");
-	a_current_spider_amount = a_spiders.size;
-	foreach(ai_spider in a_spiders)
+	spiders = getEntArray( "zombie_spider", "targetname" );
+	n_alive_spiders = spiders.size;
+	foreach ( ai_spider in spiders )
 	{
-		if(!isalive(ai_spider))
-		{
-			a_current_spider_amount--;
-		}
+		if ( !isAlive( ai_spider ) )
+			n_alive_spiders--;
+		
 	}
-	return a_current_spider_amount;
+	return n_alive_spiders;
 }
 
 function spider_round_wait_func()
 {
-	level endon("restart_round");
-	/*
-	/#
-		level endon("kill_round");
-	#/
-	*/
-	if(level flag::get("spider_round"))
+	level endon( "restart_round" );
+	
+	if ( level flag::get( "spider_round" ) )
 	{
-		level flag::wait_till("spider_round_in_progress");
-		level flag::wait_till_clear("spider_round_in_progress");
+		level flag::wait_till( "spider_round_in_progress" );
+		level flag::wait_till_clear( "spider_round_in_progress" );
 	}
-	level.sndMusicSpecialRound = 0;
+	level.sndmusicspecialround = 0;
 }
 
 function spider_round_start()
 {
-	level flag::set("spider_round");
-	level flag::set("special_round");
-	level clientfield::set("force_stream_spiders", 1);
-	if(!isdefined(level.spiderround_nomusic))
-	{
-		level.spiderround_nomusic = 0;
-	}
-	level.spiderround_nomusic = 1;
-	level notify("spider_round_starting");
-	level thread zm_audio::sndMusicSystem_PlayState("spider_roundstart");
-	if(isdefined(level.spider_melee_range))
-	{
-		SetDvar("ai_meleeRange", level.spider_melee_range);
-	}
+	level flag::set( "spider_round" );
+	level flag::set( "special_round" );
+	level clientfield::set( "force_stream_spiders", 1 );
+	
+	if ( !isDefined( level.b_spider_round_nomusic ) )
+		level.b_spider_round_nomusic = 0;
+	
+	level.b_spider_round_nomusic = 1;
+	level notify( "spider_round_starting" );
+	level thread zm_audio::sndmusicsystem_playstate( "spider_roundstart" );
+	
+	if ( isDefined( level.n_spider_melee_range ) )
+		setDvar( "ai_meleeRange", level.n_spider_melee_range );
 	else
-	{
-		SetDvar("ai_meleeRange", 100);
-	}
+		setDvar( "ai_meleeRange", 100 );
+	
 }
 
 function spider_round_stop()
 {
-	level flag::clear("spider_round");
-	level flag::clear("special_round");
-	level clientfield::set("force_stream_spiders", 0);
-	if(!isdefined(level.spiderround_nomusic))
-	{
-		level.spiderround_nomusic = 0;
-	}
-	level.spiderround_nomusic = 0;
-	level notify("spider_round_ending");
-	SetDvar("ai_meleeRange", level.melee_range_sav);
-	SetDvar("ai_meleeWidth", level.melee_width_sav);
-	SetDvar("ai_meleeHeight", level.melee_height_sav);
+	level flag::clear( "spider_round" );
+	level flag::clear( "special_round" );
+	level clientfield::set( "force_stream_spiders", 0 );
+	
+	if ( !isDefined( level.b_spider_round_nomusic ) )
+		level.b_spider_round_nomusic = 0;
+	
+	level.b_spider_round_nomusic = 0;
+	level notify( "spider_round_ending" );
+	setDvar( "ai_meleeRange", level.melee_range_sav );
+	setDvar( "ai_meleeWidth", level.melee_width_sav );
+	setDvar( "ai_meleeHeight", level.melee_height_sav );
 }
 
-function spider_spawn_delay()
+function waiting_for_next_spider_spawn()
 {
-	switch(level.players.size)
+	switch ( level.players.size )
 	{
 		case 1:
 		{
@@ -604,1631 +554,1527 @@ function spider_spawn_delay()
 			break;
 		}
 	}
-	wait(n_default_wait);
+	wait n_default_wait;
 }
 
-function spider_set_max_health()
+function spider_health_increase()
 {
-	if(isdefined(level.n_spider_max_health_override))
-	{
-		level.n_spider_max_health = level.n_spider_max_health_override;
-	}
+	if ( isDefined( level.n_spider_health_override ) )
+		level.n_spider_health = level.n_spider_health_override;
 	else
 	{
-		switch(level.n_spider_multi)
+		switch ( level.n_spider_round_count )
 		{
 			case 1:
 			{
-				level.n_spider_max_health = 400;
+				level.n_spider_health = SPIDERS_FIRST_SPIDER_ROUND_HEALTH;
 				break;
 			}
 			case 2:
 			{
-				level.n_spider_max_health = 900;
+				level.n_spider_health = SPIDERS_SECOND_SPIDER_ROUND_HEALTH;
 				break;
 			}
 			case 3:
 			{
-				level.n_spider_max_health = 1300;
+				level.n_spider_health = SPIDERS_THIRD_SPIDER_ROUND_HEALTH;
 				break;
 			}
 			default:
 			{
-				level.n_spider_max_health = 1600;
+				level.n_spider_health = SPIDERS_LATER_SPIDER_ROUND_HEALTH;
 				break;
 			}
 		}
-		level.n_spider_max_health = Int(level.n_spider_max_health * 0.5);
-		if(level flag::exists("spiders_from_mars_round") && level flag::get("spiders_from_mars_round"))
-		{
-			level.n_spider_max_health = level.n_spider_max_health * 2;
-		}
+		level.n_spider_health = int( level.n_spider_health * .5 );
 	}
 }
 
-function spider_get_spawn_point(e_favorite_enemy)
+function spider_spawn_logic( e_favorite_enemy )
 {
-	switch(level.players.size)
+	switch ( level.players.size )
 	{
 		case 1:
 		{
-			spawn_dist_min = 2500;
-			spawn_dist_max = 490000;
+			n_spawn_dist_min = 2500;
+			n_spawn_dist_max = 490000;
 			break;
 		}
 		case 2:
 		{
-			spawn_dist_min = 2500;
-			spawn_dist_max = 810000;
+			n_spawn_dist_min = 2500;
+			n_spawn_dist_max = 810000;
 			break;
 		}
 		case 3:
 		{
-			spawn_dist_min = 2500;
-			spawn_dist_max = 1000000;
+			n_spawn_dist_min = 2500;
+			n_spawn_dist_max = 1000000;
 			break;
 		}
 		case 4:
 		{
-			spawn_dist_min = 2500;
-			spawn_dist_max = 1000000;
+			n_spawn_dist_min = 2500;
+			n_spawn_dist_max = 1000000;
 			break;
 		}
 		default:
 		{
-			spawn_dist_min = 2500;
-			spawn_dist_max = 490000;
+			n_spawn_dist_min = 2500;
+			n_spawn_dist_max = 490000;
 			break;
 		}
 	}
-	if(isdefined(level.zm_loc_types["spider_location"]))
-	{
-		a_spider_spawn_locations = Array::randomize(level.zm_loc_types["spider_location"]);
-	}
+	if ( isDefined( level.zm_loc_types[ "spider_location" ] ) )
+		a_spider_locs = array::randomize( level.zm_loc_types[ "spider_location" ] );
 	else
-	{
-		ASSERTMSG("Dev Block strings are not supported");
 		return;
-	}
-	/#
-	#/
-	for(i = 0; i < a_spider_spawn_locations.size; i++)
+	
+	for ( i = 0; i < a_spider_locs.size; i++ )
 	{
-		if(isdefined(level.old_spider_spawn) && level.old_spider_spawn == a_spider_spawn_locations[i])
-		{
+		if ( isDefined( level.s_last_spider_spawn_loc ) && level.s_last_spider_spawn_loc == a_spider_locs[ i ] )
 			continue;
-		}
-		n_dist_squared = DistanceSquared(a_spider_spawn_locations[i].origin, e_favorite_enemy.origin);
-		n_height_diff = Abs(a_spider_spawn_locations[i].origin[2] - e_favorite_enemy.origin[2]);
-		if(n_dist_squared > spawn_dist_min && n_dist_squared < spawn_dist_max && n_height_diff < 128)
+		
+		n_dist_squared = distanceSquared( a_spider_locs[ i ].origin, e_favorite_enemy.origin );
+		n_height_diff = abs( a_spider_locs[ i ].origin[ 2 ] - e_favorite_enemy.origin[ 2 ] );
+		if ( n_dist_squared > n_spawn_dist_min && n_dist_squared < n_spawn_dist_max && n_height_diff < 128 )
 		{
-			s_spawn_loc = spider_spawn_adjust(a_spider_spawn_locations[i]);
-			level.old_spider_spawn = s_spawn_loc;
+			s_spawn_loc = spider_get_safe_spawn_pos( a_spider_locs[ i ] );
+			level.s_last_spider_spawn_loc = s_spawn_loc;
 			return s_spawn_loc;
 		}
 	}
-	s_spawn_loc = spider_spawn_adjust(ArrayGetClosest(e_favorite_enemy.origin, a_spider_spawn_locations));
-	level.old_spider_spawn = s_spawn_loc;
+	s_spawn_loc = spider_get_safe_spawn_pos( arrayGetClosest( e_favorite_enemy.origin, a_spider_locs ) );
+	level.s_last_spider_spawn_loc = s_spawn_loc;
 	return s_spawn_loc;
 }
 
-function spider_spawn_adjust(s_spawn_loc)
+function spider_get_safe_spawn_pos( s_spawn_loc )
 {
-	/*
-	/#
-		Assert(isdefined(s_spawn_loc), "Dev Block strings are not supported");
-	#/
-	*/
-	s_new_spawn_loc = s_spawn_loc;
-	s_new_spawn_loc.origin = s_spawn_loc.origin + VectorScale((0, 0, 1), 16);
-	return s_new_spawn_loc;
+	s_struct = s_spawn_loc;
+	s_struct.origin = s_spawn_loc.origin + vectorScale( ( 0, 0, 1 ), 16 );
+	return s_struct;
 }
 
-function spider_play_sound_start_sound()
+function play_spider_round()
 {
-	self playlocalsound("zmb_raps_round_start");
+	self playLocalSound( "zmb_raps_round_start" );
 }
 
 function spider_round_aftermath()
 {
-	level waittill("last_ai_down", e_enemy_ai);
-	level thread zm_audio::sndMusicSystem_PlayState("spider_roundend");
-	if(isdefined(level.zm_override_ai_aftermath_powerup_drop))
+	level waittill( "last_ai_down", e_enemy_ai );
+	level thread zm_audio::sndmusicsystem_playstate( "spider_roundend" );
+	if ( isDefined( level.zm_override_ai_aftermath_powerup_drop ) )
+		[ [ level.zm_override_ai_aftermath_powerup_drop ] ]( e_enemy_ai, level.last_ai_origin );
+	else
 	{
-		[[level.zm_override_ai_aftermath_powerup_drop]](e_enemy_ai, level.last_ai_origin);
+		v_power_up_origin = level.last_ai_origin;
+		if ( !isPointOnNavMesh( v_power_up_origin, e_enemy_ai ) )
+		{
+			v_power_up_origin = getClosestPointOnNavMesh( v_power_up_origin, 100 );
+			if ( !isDefined( v_power_up_origin ) )
+			{
+				e_player = zm_utility::get_closest_player( level.last_ai_origin );
+				v_power_up_origin = e_player.origin;
+			}
+		}
+		trace = groundTrace( v_power_up_origin + vectorScale( ( 0, 0, 1 ), 15 ), v_power_up_origin + ( vectorScale( ( 0, 0, -1 ), 1000 ) ), 0, undefined );
+		v_power_up_origin = trace[ "position" ];
+		if ( isDefined( v_power_up_origin ) )
+			level thread zm_powerups::specific_powerup_drop( "full_ammo", v_power_up_origin );
+		
+	}
+	wait 2;
+	level.sndmusicspecialround = 0;
+	if ( isDefined( level.zm_override_spider_round_end ) )
+	{
+		[ [ level.zm_override_spider_round_end ] ]();
 	}
 	else
 	{
-		v_origin = level.last_ai_origin;
-		if(!IsPointOnNavMesh(v_origin, e_enemy_ai))
-		{
-			v_origin = GetClosestPointOnNavMesh(v_origin, 100);
-			if(!isdefined(v_origin))
-			{
-				e_player = zm_utility::get_closest_player(level.last_ai_origin);
-				v_origin = e_player.origin;
-			}
-		}
-		trace = GroundTrace(v_origin + VectorScale((0, 0, 1), 15), v_origin + VectorScale((0, 0, -1), 1000), 0, undefined);
-		v_origin = trace["position"];
-		if(isdefined(v_origin))
-		{
-			level thread zm_powerups::specific_powerup_drop("full_ammo", v_origin);
-		}
-	}
-	wait(2);
-	level.sndMusicSpecialRound = 0;
-	if(isdefined(level.spider_custom_round_end))
-	{
-		[[level.spider_custom_round_end]]();
-		break;
-	}
-	wait(6);
-	level flag::clear("spider_round_in_progress");
-	foreach(player in level.players)
-	{
-		player clientfield::increment_to_player("spider_end_of_round_reset", 1);
+		wait 6;
+		level flag::clear( "spider_round_in_progress" );
+		foreach ( player in level.players )
+			player clientfield::increment_to_player( "spider_end_of_round_reset", 1 );
+		
 	}
 }
 
 function get_favorite_enemy()
 {
-	a_players = level.players;
-	e_least_hunted = a_players[0];
-	for(i = 0; i < a_players.size; i++)
+	a_spider_targets = level.players;
+	e_least_hunted = a_spider_targets[ 0 ];
+	for ( i = 0; i < a_spider_targets.size; i++ )
 	{
-		if(!isdefined(a_players[i].hunted_by))
-		{
-			a_players[i].hunted_by = 0;
-		}
-		if(!zm_utility::is_player_valid(a_players[i]))
-		{
+		if ( !isDefined( a_spider_targets[ i ].hunted_by ) )
+			a_spider_targets[ i ].hunted_by = 0;
+		
+		if ( !zm_utility::is_player_valid( a_spider_targets[ i ] ) )
 			continue;
-		}
-		if(!zm_utility::is_player_valid(e_least_hunted))
-		{
-			e_least_hunted = a_players[i];
-		}
-		if(a_players[i].hunted_by < e_least_hunted.hunted_by)
-		{
-			e_least_hunted = a_players[i];
-		}
+		
+		if ( !zm_utility::is_player_valid( e_least_hunted ) )
+			e_least_hunted = a_spider_targets[ i ];
+		
+		if ( a_spider_targets[ i ].hunted_by < e_least_hunted.hunted_by )
+			e_least_hunted = a_spider_targets[ i ];
+		
 	}
 	e_least_hunted.hunted_by = e_least_hunted.hunted_by + 1;
 	return e_least_hunted;
 }
 
-function special_spider_spawn(n_to_spawn, s_spawn_point)
+function special_spider_spawn( n_to_spawn, s_spawn_point )
 {
-	a_spiders = GetVehicleArray("zombie_spider", "targetname");
-	if(isdefined(a_spiders) && a_spiders.size >= 9)
-	{
+	a_spiders = getVehicleArray( "zombie_spider", "targetname" );
+	
+	if ( isDefined( a_spiders ) && a_spiders.size >= 9 )
 		return 0;
-	}
-	if(!isdefined(n_to_spawn))
-	{
+	
+	if ( !isDefined( n_to_spawn ) )
 		n_to_spawn = 1;
-	}
-	n_count = 0;
-	while(n_count < n_to_spawn)
+	
+	n_spider_count = 0;
+	while ( n_spider_count < n_to_spawn )
 	{
 		e_favorite_enemy = get_favorite_enemy();
-		if(isdefined(level.spider_spawn_func))
+		if ( isDefined( level.spider_spawn_func ) )
 		{
-			if(!isdefined(s_spawn_point))
+			if ( !isDefined( s_spawn_point ) )
 			{
-				s_spawn_point = [[level.spider_spawn_func]](level.spider_spawners, e_favorite_enemy);
+				s_spawn_point = [ [ level.spider_spawn_func ] ]( level.spider_spawners, e_favorite_enemy );
 			}
-			ai = zombie_utility::spawn_zombie(level.spider_spawners[0]);
-			if(isdefined(ai))
+			ai = zombie_utility::spawn_zombie( level.spider_spawners[ 0 ] );
+			if ( isDefined( ai ) )
 			{
-				s_spawn_point thread spider_spawn_animation(ai, s_spawn_point);
+				s_spawn_point thread spider_spawn_fx( ai, s_spawn_point );
 				level.zombie_total--;
-				n_count++;
-				level flag::set("spider_clips");
+				n_spider_count++;
+				level flag::set( "spider_clips" );
 			}
 		}
-		else if(!isdefined(s_spawn_point))
+		else if ( !isDefined( s_spawn_point ) )
+			s_spawn_point = spider_spawn_logic( e_favorite_enemy );
+		
+		ai = zombie_utility::spawn_zombie( level.spider_spawners[ 0 ] );
+		if ( isDefined( ai ) )
 		{
-			s_spawn_point = spider_get_spawn_point(e_favorite_enemy);
-		}
-		ai = zombie_utility::spawn_zombie(level.spider_spawners[0]);
-		if(isdefined(ai))
-		{
-			s_spawn_point thread spider_spawn_animation(ai, s_spawn_point);
+			s_spawn_point thread spider_spawn_fx( ai, s_spawn_point );
 			level.zombie_total--;
-			n_count++;
-			level flag::set("spider_clips");
+			n_spider_count++;
+			level flag::set( "spider_clips" );
 		}
-		spider_spawn_delay();
+		waiting_for_next_spider_spawn();
 	}
-	if(isdefined(ai))
-	{
+	if ( isDefined( ai ) )
 		return ai;
-	}
-	else
-	{
-		return undefined;
-	}
+	
+	return undefined;
 }
 
-function spider_spawn_animation(ai_spider, ent, s_scriptbundle)
+function spider_spawn_fx( ai_spider, ent = self, b_force_burrow = 0 )
 {
-	if(!isdefined(s_scriptbundle))
-	{
-		s_scriptbundle = 0;
-	}
-	if(!isdefined(ent))
-	{
-		ent = self;
-	}
-	ai_spider endon("death");
-	ai_spider ai::set_ignoreall(1);
-	if(!isdefined(ent.target) || s_scriptbundle)
+	ai_spider endon( "death" );
+	ai_spider ai::set_ignoreall( 1 );
+	
+	if ( !isDefined( ent.target ) || b_force_burrow )
 	{
 		ai_spider ghost();
-		ai_spider util::delay(0.2, "death", &show);
-		ai_spider util::delay_notify(0.2, "visible", "death");
+		ai_spider util::delay( .2, "death", &show );
+		ai_spider util::delay_notify( .2, "visible", "death" );
 		ai_spider.origin = ent.origin;
 		ai_spider.angles = ent.angles;
-		ai_spider vehicle_ai::set_state("scripted");
-		if(isalive(ai_spider))
+		ai_spider vehicle_ai::set_state( "scripted" );
+		if ( isAlive( ai_spider ) )
 		{
-			a_ground_trace = GroundTrace(ai_spider.origin + VectorScale((0, 0, 1), 100), ai_spider.origin - VectorScale((0, 0, 1), 1000), 0, ai_spider, 1);
-			if(isdefined(a_ground_trace["position"]))
-			{
-				e_model = util::spawn_model("tag_origin", a_ground_trace["position"], ai_spider.angles);
-			}
+			a_ground_trace = groundTrace( ai_spider.origin + vectorScale( ( 0, 0, 1 ), 100 ), ai_spider.origin - vectorScale( ( 0, 0, 1 ), 1000 ), 0, ai_spider, 1 );
+			if ( isDefined( a_ground_trace[ "position" ] ) )
+				e_scene_model = util::spawn_model( "tag_origin", a_ground_trace[ "position" ], ai_spider.angles );
 			else
-			{
-				e_model = util::spawn_model("tag_origin", ai_spider.origin, ai_spider.angles);
-			}
-			e_model scene::Play("scene_zm_dlc2_spider_burrow_out_of_ground", ai_spider);
-			State = "combat";
-			if(RandomFloat(1) > 0.6)
-			{
-				State = "meleeCombat";
-			}
-			ai_spider vehicle_ai::set_state(State);
-			ai_spider SetVisibleToAll();
-			ai_spider ai::set_ignoreme(0);
+				e_scene_model = util::spawn_model( "tag_origin", ai_spider.origin, ai_spider.angles );
+			
+			e_scene_model scene::play( "scene_zm_dlc2_spider_burrow_out_of_ground", ai_spider );
+			state = "combat";
+			if ( randomFloat( 1 ) > .6 )
+				state = "meleeCombat";
+			
+			ai_spider vehicle_ai::set_state( state );
+			ai_spider setVisibleToAll();
+			ai_spider ai::set_ignoreme( 0 );
 		}
 	}
 	else
 	{
-		ai_spider.disableArrivals = 1;
-		ai_spider.disableExits = 1;
-		ai_spider vehicle_ai::set_state("scripted");
-		ai_spider notify("visible");
-		a_scriptbundles = struct::get_array(ent.target, "targetname");
-		s_scriptbundle = Array::random(a_scriptbundles);
-		if(isdefined(s_scriptbundle) && isalive(ai_spider))
+		ai_spider.disablearrivals = 1;
+		ai_spider.disableexits = 1;
+		ai_spider vehicle_ai::set_state( "scripted" );
+		ai_spider notify( "visible" );
+		a_spawn_scenebundles = struct::get_array( ent.target, "targetname" );
+		s_spawn_scenebundle = array::random( a_spawn_scenebundles );
+		if ( isDefined( s_spawn_scenebundle ) && isAlive( ai_spider ) )
 		{
-			s_scriptbundle.script_play_multiple = 1;
-			level scene::Play(ent.target, ai_spider);
+			s_spawn_scenebundle.script_play_multiple = 1;
+			level scene::play( ent.target, ai_spider );
 		}
 		else
 		{
-			a_vehicle_nodes = getvehiclenodearray(ent.target, "targetname");
-			s_vehicle_node = Array::random(a_vehicle_nodes);
+			a_vehicle_nodes = getVehicleNodeArray( ent.target, "targetname" );
+			s_vehicle_node = array::random( a_vehicle_nodes );
 			ai_spider ghost();
-			ai_spider.e_vehicle_linker = spawner::simple_spawn_single("spider_mover_spawner");
-			ai_spider.origin = ai_spider.e_vehicle_linker.origin;
-			ai_spider.angles = ai_spider.e_vehicle_linker.angles;
-			ai_spider LinkTo(ai_spider.e_vehicle_linker);
-			s_end = struct::get(s_vehicle_node.target, "targetname");
-			ai_spider.e_vehicle_linker vehicle::get_on_path(s_vehicle_node);
+			ai_spider.spider_anchor = spawner::simple_spawn_single( "spider_mover_spawner" );
+			ai_spider.origin = ai_spider.spider_anchor.origin;
+			ai_spider.angles = ai_spider.spider_anchor.angles;
+			ai_spider linkTo( ai_spider.spider_anchor );
+			s_end = struct::get( s_vehicle_node.target, "targetname" );
+			ai_spider.spider_anchor vehicle::get_on_path( s_vehicle_node );
 			ai_spider show();
-			if(isdefined(s_vehicle_node.script_int))
-			{
-				ai_spider.e_vehicle_linker SetSpeed(s_vehicle_node.script_int);
-			}
+			if ( isDefined( s_vehicle_node.script_int ) )
+				ai_spider.spider_anchor setSpeed( s_vehicle_node.script_int );
 			else
-			{
-				ai_spider.e_vehicle_linker SetSpeed(20);
-			}
-			ai_spider.e_vehicle_linker vehicle::go_path();
-			ai_spider notify("hash_a81735f9");
-			ai_spider Unlink();
-			ai_spider.e_vehicle_linker delete();
+				ai_spider.spider_anchor setSpeed( 20 );
+			
+			ai_spider.spider_anchor vehicle::go_path();
+			ai_spider notify( "spider_on_path" );
+			ai_spider unlink();
+			ai_spider.spider_anchor delete();
 		}
-		Earthquake(0.1, 0.5, ai_spider.origin, 256);
-		State = "combat";
-		if(RandomFloat(1) > 0.6)
-		{
-			State = "meleeCombat";
-		}
-		ai_spider vehicle_ai::set_state(State);
+		earthquake( .1, .5, ai_spider.origin, 256 );
+		state = "combat";
+		if ( randomFloat( 1 ) > .6 )
+			state = "meleeCombat";
+		
+		ai_spider vehicle_ai::set_state( state );
 		ai_spider.completed_emerging_into_playable_area = 1;
 	}
-	ai_spider ai::set_ignoreall(0);
+	ai_spider ai::set_ignoreall( 0 );
 }
 
-function spider_custom_shellshock(damage, attacker, direction_vec, point, mod)
+function spider_custom_player_shellshock( damage, attacker, direction_vec, point, mod )
 {
-	if(mod == "MOD_EXPLOSIVE")
-	{
-		self thread spider_shellshock();
-	}
+	if ( mod == "MOD_EXPLOSIVE" )
+		self thread spider_shellshock_player();
+	
 }
 
-function spider_shellshock()
+function spider_shellshock_player()
 {
-	self endon("death");
-	if(!isdefined(self.n_shellshock_count))
-	{
-		self.n_shellshock_count = 0;
-	}
-	self.n_shellshock_count++;
-	if(self.n_shellshock_count >= 4)
-	{
-		self shellshock("pain", 1);
-	}
-	self util::waittill_any_timeout(10, "death");
-	self.n_shellshock_count--;
+	self endon( "death" );
+	if ( !isDefined( self.n_spider_shellshock_count ) )
+		self.n_spider_shellshock_count = 0;
+	
+	self.n_spider_shellshock_count++;
+	if ( self.n_spider_shellshock_count >= 4 )
+		self shellShock( "pain", 1 );
+	
+	self util::waittill_any_timeout( 10, "death" );
+	self.n_spider_shellshock_count--;
 }
 
-function web_init()
+function spider_web_doors_and_bgbs_init()
 {
-	/*
-	a_spider_web_visuals = GetEntArray("spider_web_visual", "script_string");
-	Array::run_all(a_spider_web_visuals, &notsolid);
-	Array::run_all(a_spider_web_visuals, &Hide);
-	level.a_spider_web_triggers = [];
-	level.revive_trigger_should_ignore_sight_checks = &function_7495ed75;
-	a_bgb_web_triggers = GetEntArray("bgb_web_trigger", "targetname");
-	foreach(trigger in a_bgb_web_triggers)
+	a_door_webs = getEntArray( "spider_web_visual", "script_string" );
+	array::run_all( a_door_webs, &notsolid );
+	array::run_all( a_door_webs, &hide );
+	level.a_spider_webs = [];
+	level.revive_trigger_should_ignore_sight_checks = &spider_web_should_ignore_sight_checks;
+	a_bgb_webs = getEntArray( "bgb_web_trigger", "targetname" );
+	foreach ( trigger in a_bgb_webs )
 	{
-		trigger thread setup_bgb_web();
-		if(!isdefined(level.a_spider_web_triggers))
-		{
-			level.a_spider_web_triggers = [];
-		}
-		else if(!IsArray(level.a_spider_web_triggers))
-		{
-			level.a_spider_web_triggers = Array(level.a_spider_web_triggers);
-		}
-		level.a_spider_web_triggers[level.a_spider_web_triggers.size] = trigger;
+		trigger thread spider_web_bgb_init_and_think();
+		if ( !isDefined( level.a_spider_webs ) )
+			level.a_spider_webs = [];
+		else if ( !isArray( level.a_spider_webs ) )
+			level.a_spider_webs = array( level.a_spider_webs );
+		
+		level.a_spider_webs[ level.a_spider_webs.size ] = trigger;
 	}
-	a_zombie_doors = GetEntArray("zombie_door", "targetname");
-	foreach(trigger in a_zombie_doors)
+	
+	a_zombie_door_triggers = getEntArray( "zombie_door", "targetname" );
+	foreach ( trigger in a_zombie_door_triggers )
 	{
-		a_zombie_door_triggers = GetEntArray(trigger.target, "targetname");
-		a_spider_web_door_triggers = [];
-		foreach(e_piece in a_zombie_door_triggers)
+		a_target_ents = getEntArray( trigger.target, "targetname" );
+		a_door_web_triggers = [];
+		foreach ( e_piece in a_target_ents )
 		{
-			if(e_piece.script_string === "spider_web_trigger")
+			if ( e_piece.script_string === "spider_web_trigger" )
 			{
-				if(!isdefined(a_spider_web_door_triggers))
-				{
-					a_spider_web_door_triggers = [];
-				}
-				else if(!IsArray(a_spider_web_door_triggers))
-				{
-					a_spider_web_door_triggers = Array(a_spider_web_door_triggers);
-				}
-				a_spider_web_door_triggers[a_spider_web_door_triggers.size] = e_piece;
+				if ( !isDefined( a_door_web_triggers ) )
+					a_door_web_triggers = [];
+				else if ( !isArray( a_door_web_triggers ) )
+					a_door_web_triggers = array( a_door_web_triggers );
+				
+				a_door_web_triggers[ a_door_web_triggers.size ] = e_piece;
 			}
 		}
-		foreach(e_spider_web_door_trigger in a_spider_web_door_triggers)
+		foreach ( e_door_web_trigger in a_door_web_triggers )
 		{
-			e_spider_web_door_trigger.e_door_trigger = trigger;
-			e_spider_web_door_trigger.script_flag = trigger.script_flag;
-			e_spider_web_door_trigger set_up_web_visual();
-			if(!(isdefined(e_spider_web_door_trigger.b_active) && e_spider_web_door_trigger.b_active))
+			e_door_web_trigger.e_web_trigger = trigger;
+			e_door_web_trigger.script_flag = trigger.script_flag;
+			e_door_web_trigger spider_web_door_init();
+			if ( !IS_TRUE( e_door_web_trigger.b_active ) )
 			{
-				e_spider_web_door_trigger.b_active = 1;
-				if(!isdefined(level.a_spider_web_triggers))
-				{
-					level.a_spider_web_triggers = [];
-				}
-				else if(!IsArray(level.a_spider_web_triggers))
-				{
-					level.a_spider_web_triggers = Array(level.a_spider_web_triggers);
-				}
-				level.a_spider_web_triggers[level.a_spider_web_triggers.size] = e_spider_web_door_trigger;
-				e_spider_web_door_trigger thread function_a96551fe();
+				e_door_web_trigger.b_active = 1;
+				if ( !isDefined( level.a_spider_webs ) )
+					level.a_spider_webs = [];
+				else if ( !isArray( level.a_spider_webs ) )
+					level.a_spider_webs = array( level.a_spider_webs );
+				
+				level.a_spider_webs[ level.a_spider_webs.size ] = e_door_web_trigger;
+				e_door_web_trigger thread spider_web_door_watcher();
 			}
 		}
 	}
-	*/
 }
 
-function set_up_web_visual()
+function spider_web_door_init()
 {
-	/*
-	a_target_ents = GetEntArray(self.target, "targetname");
-	self.s_web_struct = struct::get(self.target, "targetname");
-	foreach(e_entity in a_target_ents)
+	a_target_ents = getEntArray( self.target, "targetname" );
+	self.s_spider_web_fx = struct::get( self.target, "targetname" );
+	foreach ( e_target_ent in a_target_ents )
 	{
-		if(e_entity.script_string === "spider_web_visual")
+		if ( e_target_ent.script_string === "spider_web_visual" )
 		{
-			self.e_destructible = e_entity;
-			self.e_web = e_entity;
-			self.e_web clientfield::set("web_fade_material", 0);
+			self.e_destructible = e_target_ent;
+			self.e_web_model = e_target_ent;
+			self.e_web_model clientfield::set( "web_fade_material", 0 );
 		}
 	}
-	*/
 }
 
-function setup_web_trigger()
+function spider_web_create_webtear_trigger()
 {
-	/*
-	s_unitrigger = spawnstruct();
+	s_unitrigger = spawnStruct();
 	s_unitrigger.origin = self.origin;
-	if(self.targetname == "bgb_web_trigger" || self.targetname == "doorbuy_web_trigger")
+	if ( self.targetname == "bgb_web_trigger" || self.targetname == "doorbuy_web_trigger" )
 	{
-		var_81aba619 = struct::get_array(self.target, "targetname");
-		if(isdefined(var_81aba619[0]))
-		{
-			s_unitrigger.angles = var_81aba619[0].angles;
-		}
+		s_trigger_struct = struct::get_array( self.target, "targetname" );
+		if ( isDefined( s_trigger_struct[ 0 ] ) )
+			s_unitrigger.angles = s_trigger_struct[ 0 ].angles;
 		else
-		{
 			s_unitrigger.angles = self.angles;
-		}
+		
 	}
 	else
-	{
 		s_unitrigger.angles = self.angles;
-	}
+	
 	s_unitrigger.script_unitrigger_type = "unitrigger_box_use";
 	s_unitrigger.cursor_hint = "HINT_NOICON";
 	s_unitrigger.require_look_at = 0;
-	s_unitrigger.var_a6a648f0 = self;
-	if(isdefined(self.script_width))
-	{
+	s_unitrigger.e_web_trigger = self;
+	if ( isDefined( self.script_width ) )
 		s_unitrigger.script_width = self.script_width;
-	}
 	else
-	{
 		s_unitrigger.script_width = 128;
-	}
-	if(isdefined(self.script_length))
-	{
+	
+	if ( isDefined( self.script_length ) )
 		s_unitrigger.script_length = self.script_length;
-	}
 	else
-	{
 		s_unitrigger.script_length = 130;
-	}
-	if(isdefined(self.script_height))
-	{
+	
+	if ( isDefined( self.script_height ) )
 		s_unitrigger.script_height = self.script_height;
-	}
 	else
-	{
 		s_unitrigger.script_height = 100;
-	}
-	if(isdefined(self.script_vector))
+	
+	if ( isDefined( self.script_vector ) )
 	{
-		s_unitrigger.script_length = self.script_vector[0];
-		s_unitrigger.script_width = self.script_vector[1];
-		s_unitrigger.script_height = self.script_vector[2];
+		s_unitrigger.script_length = self.script_vector[ 0 ];
+		s_unitrigger.script_width = self.script_vector[ 1 ];
+		s_unitrigger.script_height = self.script_vector[ 2 ];
 	}
-	s_unitrigger.prompt_and_visibility_func = &function_e433eb78;
-	zm_unitrigger::register_static_unitrigger(s_unitrigger, &function_c915f7a9);
+	s_unitrigger.prompt_and_visibility_func = &spider_web_prompt_and_visiblity_func;
+	zm_unitrigger::register_static_unitrigger( s_unitrigger, &spider_web_unitrigger_think );
 	self.s_unitrigger = s_unitrigger;
-	*/
 }
 
-function setup_bgb_web()
+function spider_web_bgb_init_and_think()
 {
-	/*
-	self endon("death");
-	self set_up_web_visual();
-	self.web_bgb_zbarrier = undefined;
-	foreach(web_bgb_zbarrier in level.bgb_machines)
+	self endon( "death" );
+	self spider_web_door_init();
+	self.e_bgb_machine = undefined;
+	
+	foreach ( e_bgb_machine in level.bgb_machines )
 	{
-		if(web_bgb_zbarrier istouching(self))
+		if ( e_bgb_machine isTouching( self ) )
 		{
-			self.web_bgb_zbarrier = web_bgb_zbarrier;
-			self.e_web.origin = self.web_bgb_zbarrier.origin;
-			self.e_web.angles = self.web_bgb_zbarrier.angles;
+			self.e_bgb_machine = e_bgb_machine;
+			self.e_web_model.origin = self.e_bgb_machine.origin;
+			self.e_web_model.angles = self.e_bgb_machine.angles;
 		}
 	}
-	while(1)
+	while ( 1 )
 	{
-		if(function_f67965ad(self.origin))
+		if ( can_be_webbed( self.origin ) )
 		{
-			self spider_web_state(1);
-			if(isdefined(self.web_bgb_zbarrier))
+			self set_webbed_state( 1 );
+			if ( isDefined( self.e_bgb_machine ) )
 			{
-				self notify("hash_16b3008");
-				self thread activate_bgb_web();
+				self notify( "end_old_bgb_webs" );
+				self thread spider_web_bgb_webtear_think();
 			}
-			self waittill("hash_bbf62f57");
-			self spider_web_state(0);
+			self waittill( "web_torn" );
+			self set_webbed_state( 0 );
 		}
-		level waittill("hash_9c49b4a8");
+		level waittill( "enable_spider_round_webs" );
 	}
-	*/
 }
 
-function activate_bgb_web()
+function spider_web_bgb_webtear_think()
 {
-	/*
-	self endon("death");
-	self endon("hash_16b3008");
-	self.web_bgb_zbarrier thread FX::Play("spider_web_bgb_reweb", self.web_bgb_zbarrier.origin, self.web_bgb_zbarrier.angles);
-	if(self.web_bgb_zbarrier bgb_machine::function_8ae729a7() === "initial" || self.web_bgb_zbarrier bgb_machine::function_b56ef180())
+	self endon( "death" );
+	self endon( "end_old_bgb_webs" );
+	self.e_bgb_machine thread fx::play( "spider_web_bgb_reweb", self.e_bgb_machine.origin, self.e_bgb_machine.angles );
+	if ( self.e_bgb_machine bgb_machine::get_bgb_machine_state() === "initial" || self.e_bgb_machine bgb_machine::is_bgb_machine_active() )
 	{
-		self.web_bgb_zbarrier thread zm_unitrigger::unregister_unitrigger(self.web_bgb_zbarrier.unitrigger_stub);
-		self waittill("hash_bbf62f57");
-		self.web_bgb_zbarrier thread zm_unitrigger::register_static_unitrigger(self.web_bgb_zbarrier.unitrigger_stub, &bgb_machine::function_ededc488);
+		self.e_bgb_machine thread zm_unitrigger::unregister_unitrigger( self.e_bgb_machine.unitrigger_stub );
+		self waittill( "web_torn" );
+		self.e_bgb_machine thread zm_unitrigger::register_static_unitrigger( self.e_bgb_machine.unitrigger_stub, &bgb_machine::bgb_machine_unitrigger_think );
 	}
-	while(1)
+	while ( 1 )
 	{
-		self.web_bgb_zbarrier waittill("zbarrier_state_change");
-		if(isdefined(self.b_web_active) && self.b_web_active)
+		self.e_bgb_machine waittill( "zbarrier_state_change" );
+		if ( IS_TRUE( self.b_web_on ) )
 		{
-			if(self.web_bgb_zbarrier bgb_machine::function_8ae729a7() === "initial" || self.web_bgb_zbarrier bgb_machine::function_b56ef180())
+			if ( self.e_bgb_machine bgb_machine::get_bgb_machine_state() === "initial" || self.e_bgb_machine bgb_machine::is_bgb_machine_active() )
 			{
-				self.web_bgb_zbarrier thread zm_unitrigger::unregister_unitrigger(self.web_bgb_zbarrier.unitrigger_stub);
-				self waittill("hash_bbf62f57");
-				self.web_bgb_zbarrier thread zm_unitrigger::register_static_unitrigger(self.web_bgb_zbarrier.unitrigger_stub, &bgb_machine::function_ededc488);
+				self.e_bgb_machine thread zm_unitrigger::unregister_unitrigger( self.e_bgb_machine.unitrigger_stub );
+				self waittill( "web_torn" );
+				self.e_bgb_machine thread zm_unitrigger::register_static_unitrigger( self.e_bgb_machine.unitrigger_stub, &bgb_machine::bgb_machine_unitrigger_think );
 			}
 		}
 	}
-	*/
 }
 
-function function_a96551fe()
+function spider_web_door_watcher()
 {
-	/*
-	self endon("death");
-	while(!(isdefined(self.var_b8a7fb78._door_open) && self.var_b8a7fb78._door_open))
-	{
-		wait(0.5);
-	}
-	while(1)
+	self endon( "death" );
+	while ( !IS_TRUE( self.e_web_trigger._door_open ) )
+		wait .5;
+	
+	while ( 1 )
 	{
 		self trigger::wait_till();
-		if(isdefined(self.who.b_is_spider) && self.who.b_is_spider || (isdefined(level.var_f618f3e1) && level.var_f618f3e1))
+		if ( IS_TRUE( self.who.b_is_spider ) )
 		{
-			var_59bd3c5a = self.who;
-			var_94aebe65 = RandomInt(100);
-			if(var_94aebe65 < level.var_42034f6a)
+			e_spider = self.who;
+			n_web_chance = randomInt( 100 );
+			if ( n_web_chance < level.spider_web_chance )
 			{
-				self.var_cb6fa5c5 = 0;
-				self thread function_e96bd0d2();
-				if(isalive(var_59bd3c5a) && (isdefined(var_59bd3c5a.b_is_spider) && var_59bd3c5a.b_is_spider))
-				{
-					var_59bd3c5a function_d8cfc139(self);
-				}
-				self function_c83dc712();
-				level util::waittill_any_ents(level, "end_of_round", level, "between_round_over", level, "start_of_round", self, "death", level, "enable_all_webs");
+				self.n_ai_stuck_to_web = 0;
+				self thread spider_webtear_door_think();
+				if ( isAlive( e_spider ) && IS_TRUE( e_spider.b_is_spider ) )
+					e_spider spider_web_door_engage( self );
+				
+				self spider_webs_cleanup_trapped_ai();
+				level util::waittill_any_ents( level, "end_of_round", level, "between_round_over", level, "start_of_round", self, "death", level, "enable_all_webs" );
 			}
 			else
-			{
-				wait(3);
-			}
+				wait 3;
+			
 		}
 	}
-	*/
 }
 
-function function_d8cfc139(e_dest)
+function spider_web_door_engage( e_dest )
 {
-	/*
-	self endon("death");
-	var_366514d8 = util::spawn_model("tag_origin", self.origin, self.angles);
-	var_366514d8 thread scene::Play("scene_zm_dlc2_spider_web_engage", self);
-	self waittill("web");
-	self function_f2724f43(e_dest);
-	*/
+	self endon( "death" );
+	e_scene_model = util::spawn_model( "tag_origin", self.origin, self.angles );
+	e_scene_model thread scene::play( "scene_zm_dlc2_spider_web_engage", self );
+	self waittill( "web" );
+	self spit_projectile( e_dest );
 }
 
-function function_f2724f43(e_dest)
+function spit_projectile( e_dest )
 {
-	/*
-	v_origin = self GetTagOrigin("head_1");
-	v_angles = self GetTagAngles("head_1");
-	var_e9ad0294 = util::spawn_model("tag_origin", v_origin, v_angles);
-	var_e9ad0294 thread FX::Play("spider_web_spit_reweb", v_origin, v_angles, "movedone", 1);
-	var_e9ad0294 moveto(e_dest.origin, 0.5);
-	var_e9ad0294 waittill("movedone");
-	var_e9ad0294 delete();
-	*/
+	v_origin = self gettagorigin( "head_1" );
+	v_angles = self gettagangles( "head_1" );
+	e_spit_fx_model = util::spawn_model( "tag_origin", v_origin, v_angles );
+	e_spit_fx_model thread fx::play( "spider_web_spit_reweb", v_origin, v_angles, "movedone", 1 );
+	e_spit_fx_model moveto( e_dest.origin, .5 );
+	e_spit_fx_model waittill( "movedone" );
+	e_spit_fx_model delete();
 }
 
-function spider_web_state(b_on, var_32ee3d8b)
+function set_webbed_state( b_on = 1, n_transition_fade = .5 )
 {
-	/*
-	if(!isdefined(b_on))
+	if ( b_on )
 	{
-		b_on = 1;
-	}
-	if(!isdefined(var_32ee3d8b))
-	{
-		var_32ee3d8b = 0.5;
-	}
-	if(b_on)
-	{
-		if(isdefined(self.s_web_struct))
-		{
-			self.e_web thread FX::Play("spider_web_doorbuy_reweb", self.s_web_struct.origin, self.s_web_struct.angles);
-		}
-		self setup_web_trigger();
-		self.e_web show();
-		self.e_web solid();
-		self.e_web clientfield::set("web_fade_material", var_32ee3d8b);
-		self.b_web_active = 1;
-		self thread function_1a393131();
+		if ( isDefined( self.s_spider_web_fx ) )
+			self.e_web_model thread fx::play( "spider_web_doorbuy_reweb", self.s_spider_web_fx.origin, self.s_spider_web_fx.angles );
+		
+		self spider_web_create_webtear_trigger();
+		self.e_web_model show();
+		self.e_web_model solid();
+		self.e_web_model clientfield::set( "web_fade_material", n_transition_fade );
+		self.b_web_on = 1;
+		self thread spider_web_door_watch_for_grenade_stuck();
 	}
 	else
 	{
-		self.b_web_active = 0;
-		self.var_cb6fa5c5 = 0;
-		self.e_web clientfield::set("web_fade_material", 0);
-		self.e_web notsolid();
-		self.e_web Hide();
-		zm_unitrigger::unregister_unitrigger(self.s_unitrigger);
+		self.b_web_on = 0;
+		self.n_ai_stuck_to_web = 0;
+		self.e_web_model clientfield::set( "web_fade_material", 0 );
+		self.e_web_model notsolid();
+		self.e_web_model hide();
+		zm_unitrigger::unregister_unitrigger( self.s_unitrigger );
 	}
-	*/
 }
 
-function function_c83dc712()
+function spider_webs_cleanup_trapped_ai()
 {
-	/*
-	self endon("death");
-	if(isdefined(self.script_noteworthy))
+	self endon( "death" );
+	if ( isDefined( self.script_noteworthy ) )
 	{
-		var_6adf046 = [];
-		var_6adf046 = StrTok(self.script_noteworthy, " ");
+		a_zones = [];
+		a_zones = strTok( self.script_noteworthy, " " );
 	}
 	else
-	{
 		return;
-	}
-	self spider_web_state(1);
-	var_9df462ad = [];
-	foreach(str_zone in var_6adf046)
+	
+	self set_webbed_state( 1 );
+	a_zones_to_check = [];
+	foreach ( str_zone in a_zones )
 	{
-		e_zone = level.zones[str_zone];
-		/#
-			Assert(isdefined(e_zone), "Dev Block strings are not supported" + str_zone + "Dev Block strings are not supported");
-		#/
-		if(!function_7be01d65(str_zone))
+		e_zone = level.zones[ str_zone ];
+		
+		if ( !is_in_valid_zone( str_zone ) )
 		{
 			e_zone.is_spawning_allowed = 0;
-			e_zone thread function_cb33362d();
-			if(!isdefined(var_9df462ad))
+			e_zone thread add_zombie_to_respawn_queue();
+			if ( !isDefined( a_zones_to_check ) )
+				a_zones_to_check = [];
+			else if ( !isArray( a_zones_to_check ) )
+				a_zones_to_check = array( a_zones_to_check );
+			
+			a_zones_to_check[ a_zones_to_check.size ] = e_zone;
+			a_zombies = zombie_utility::get_zombie_array();
+			foreach ( ai_zombie in a_zombies )
 			{
-				var_9df462ad = [];
-			}
-			else if(!IsArray(var_9df462ad))
-			{
-				var_9df462ad = Array(var_9df462ad);
-			}
-			var_9df462ad[var_9df462ad.size] = e_zone;
-			var_d1cba433 = zombie_utility::get_zombie_array();
-			foreach(ai_zombie in var_d1cba433)
-			{
-				if(ai_zombie zm_zonemgr::entity_in_zone(str_zone))
-				{
-					ai_zombie.var_b1b7c1b7 = 1;
-				}
+				if ( ai_zombie zm_zonemgr::entity_in_zone( str_zone ) )
+					ai_zombie.b_immune_to_web_stick = 1;
+				
 			}
 		}
 	}
-	self waittill("hash_bbf62f57");
-	foreach(e_zone in var_9df462ad)
+	self waittill( "web_torn" );
+	foreach ( e_zone in a_zones_to_check )
 	{
 		e_zone.is_spawning_allowed = 1;
-		e_zone notify("hash_bbf62f57");
+		e_zone notify( "web_torn" );
 	}
-	self spider_web_state(0);
-	*/
+	self set_webbed_state( 0 );
 }
 
-function function_7be01d65(str_zone)
+function add_zombie_to_respawn_queue()
 {
-	/*
-	e_zone = level.zones[str_zone];
-	for(i = 0; i < e_zone.Volumes.size; i++)
+	self endon( "web_torn" );
+	str_zone = self.volumes[ 0 ].targetname;
+	while ( !( isDefined( is_in_valid_zone( str_zone ) ) && is_in_valid_zone( str_zone ) ) )
+		wait 1;
+	
+	self.is_spawning_allowed = 1;
+}
+
+function is_in_valid_zone( str_zone )
+{
+	e_zone = level.zones[ str_zone ];
+	for ( i = 0; i < e_zone.volumes.size; i++ )
 	{
-		foreach(player in level.players)
+		foreach ( player in level.players )
 		{
-			if(zm_utility::is_player_valid(player, 0, 0) && player istouching(e_zone.Volumes[i]))
-			{
+			if ( zm_utility::is_player_valid( player, 0, 0 ) && player isTouching( e_zone.volumes[ i ] ) )
 				return 1;
-			}
+			
 		}
 	}
 	return 0;
-	*/
 }
 
-function function_cb33362d()
+function spider_webtear_door_think()
 {
-	/*
-	self endon("hash_bbf62f57");
-	str_zone = self.Volumes[0].targetname;
-	while(!(isdefined(function_7be01d65(str_zone)) && function_7be01d65(str_zone)))
+	self endon( "web_torn" );
+	self thread spider_ai_web_door_think();
+	while ( true )
 	{
-		wait(1);
+		self waittill( "trigger", e_who );
+		if ( !IS_TRUE( e_who.b_is_spider ) && !IS_TRUE( e_who.b_stuck_to_web ) && isAi( e_who ) )
+			self.n_ai_stuck_to_web++;
+		else if ( IS_TRUE( e_who.b_is_spider ) && !IS_TRUE( e_who.b_spider_is_traversing_web ) )
+			e_who thread spider_burrow_through_web( self );
+		
 	}
-	self.is_spawning_allowed = 1;
-	*/
 }
 
-function function_e96bd0d2()
+function spider_ai_web_door_think()
 {
-	/*
-	self endon("hash_bbf62f57");
-	self thread function_e85225c8();
-	while(1)
+	self endon( "web_torn" );
+	e_door_web_trigger = spawn( "trigger_radius", self.origin, 1, 50, 50 );
+	e_door_web_trigger endon( "death" );
+	self thread spider_web_delete_on_tear( e_door_web_trigger );
+	self.b_is_checking_for_stuck_zombie = 0;
+	while ( 1 )
 	{
-		self waittill("trigger", e_who);
-		if(!isdefined(e_who.b_is_spider) && e_who.b_is_spider && (!isdefined(e_who.var_93100ec2) && e_who.var_93100ec2) && isai(e_who))
+		e_door_web_trigger waittill( "trigger", e_who );
+		if ( e_who.archetype === "thrasher" )
 		{
-			self.var_cb6fa5c5++;
+			self thread do_webtear_effects( 1 );
+			self notify( "web_torn" );
 		}
-		else if(isdefined(e_who.b_is_spider) && e_who.b_is_spider && (!isdefined(e_who.var_a56241ac) && e_who.var_a56241ac))
+		else if ( e_who.archetype === "zombie" && !IS_TRUE( e_who.b_stuck_to_web ) )
 		{
-			e_who thread function_9b4a5d94(self);
-		}
-	}
-	*/
-}
-
-function function_e85225c8()
-{
-	/*
-	self endon("hash_bbf62f57");
-	e_spider_web_door_trigger = spawn("trigger_radius", self.origin, 1, 50, 50);
-	e_spider_web_door_trigger endon("death");
-	self thread function_d1835ae4(e_spider_web_door_trigger);
-	self.var_82b5ff7a = 0;
-	while(1)
-	{
-		e_spider_web_door_trigger waittill("trigger", e_who);
-		if(e_who.archetype === "thrasher")
-		{
-			self thread function_6b1cc9fb(1);
-			self notify("hash_bbf62f57");
-		}
-		else if(e_who.archetype === "zombie" && (!isdefined(e_who.var_93100ec2) && e_who.var_93100ec2))
-		{
-			e_who thread function_82900a05(self);
-			if(!self.var_82b5ff7a)
+			e_who thread zombie_stick_to_web( self );
+			if ( !self.b_is_checking_for_stuck_zombie )
 			{
-				self thread function_d672fbd9(e_spider_web_door_trigger);
-				self thread function_6c15e157(4, 0.125);
+				self.b_is_checking_for_stuck_zombie = 1;
+				self thread tear_if_zombie_stuck_after_a_minute( e_door_web_trigger );
+				self thread spider_web_wobble( 4, .125 );
 			}
 		}
 	}
-	*/
 }
 
-function function_d672fbd9(e_spider_web_door_trigger)
+function tear_if_zombie_stuck_after_a_minute( e_door_web_trigger )
 {
-	/*
-	self endon("hash_bbf62f57");
-	wait(60);
-	foreach(ai_zombie in GetAITeamArray(level.zombie_team))
+	self endon( "web_torn" );
+	wait 60;
+	foreach ( ai_zombie in getAiTeamArray( level.zombie_team ) )
 	{
-		if(ai_zombie istouching(e_spider_web_door_trigger))
+		if ( ai_zombie isTouching( e_door_web_trigger ) )
 		{
-			self.var_82b5ff7a = 0;
-			self thread function_6b1cc9fb(1);
-			self notify("hash_bbf62f57");
+			self.b_is_checking_for_stuck_zombie = 0;
+			self thread do_webtear_effects( 1 );
+			self notify( "web_torn" );
 		}
 	}
-	self.var_82b5ff7a = 0;
-	*/
+	self.b_is_checking_for_stuck_zombie = 0;
 }
 
-function function_82900a05(e_spider_web_door_trigger)
+function zombie_stick_to_web( e_door_web_trigger )
 {
-	/*
-	self endon("death");
-	self.var_93100ec2 = 1;
-	if(e_spider_web_door_trigger.var_cb6fa5c5 > 5)
-	{
-		self.var_b1b7c1b7 = 1;
-	}
+	self endon( "death" );
+	self.b_stuck_to_web = 1;
+	if ( e_door_web_trigger.n_ai_stuck_to_web > 5 )
+		self.b_immune_to_web_stick = 1;
 	else
-	{
-		self thread function_e0f04a8a();
-	}
-	self ASMSetAnimationRate(0.1);
-	self ai::set_ignoreall(1);
-	e_spider_web_door_trigger waittill("hash_bbf62f57");
-	self ASMSetAnimationRate(1);
-	self ai::set_ignoreall(0);
-	self notify("hash_af52d2f8");
-	self.var_93100ec2 = 0;
-	self.var_b1b7c1b7 = 0;
-	*/
+		self thread set_immune_to_web_for_time();
+	
+	self asmSetAnimationRate( 0.1 );
+	self ai::set_ignoreall( 1 );
+	e_door_web_trigger waittill( "web_torn" );
+	self asmSetAnimationRate( 1 );
+	self ai::set_ignoreall( 0 );
+	self notify( "zombie_freed_from_web" );
+	self.b_stuck_to_web = 0;
+	self.b_immune_to_web_stick = 0;
 }
 
-function function_d1835ae4(e_spider_web_door_trigger)
+function spider_web_delete_on_tear( e_door_web_trigger )
 {
-	/*
-	self waittill("hash_bbf62f57");
-	if(isdefined(e_spider_web_door_trigger))
-	{
-		e_spider_web_door_trigger delete();
-	}
-	*/
+	self waittill( "web_torn" );
+	if ( isDefined( e_door_web_trigger ) )
+		e_door_web_trigger delete();
+	
 }
 
-function function_9b4a5d94(e_spider_web_door_trigger)
+function spider_burrow_through_web( e_door_web_trigger )
 {
-	/*
-	self endon("death");
-	e_spider_web_door_trigger endon("death");
-	self.var_a56241ac = 1;
-	self FX::Play("spider_web_spider_enter", self.origin, self.angles, "stop_spider_web_enter", 0, "tag_body");
-	e_spider_web_door_trigger thread function_6c15e157(1);
-	while(1)
+	self endon( "death" );
+	e_door_web_trigger endon( "death" );
+	self.b_spider_is_traversing_web = 1;
+	self fx::play( "spider_web_spider_enter", self.origin, self.angles, "stop_spider_web_enter", 0, "tag_body" );
+	e_door_web_trigger thread spider_web_wobble( 1 );
+	while ( 1 )
 	{
-		wait(0.05);
-		if(self istouching(e_spider_web_door_trigger) && (isdefined(e_spider_web_door_trigger.b_web_active) && e_spider_web_door_trigger.b_web_active))
-		{
+		WAIT_SERVER_FRAME
+		if ( self isTouching( e_door_web_trigger ) && IS_TRUE( e_door_web_trigger.b_web_on ) )
 			continue;
-		}
 		else
 		{
-			self.var_a56241ac = 0;
-			self notify("hash_ef3d1943");
-			self FX::Play("spider_web_spider_leave", self.origin, self.angles, 2, 0, "tag_body");
+			self.b_spider_is_traversing_web = 0;
+			self notify( "stop_spider_web_enter" );
+			self fx::play( "spider_web_spider_leave", self.origin, self.angles, 2, 0, "tag_body" );
 			break;
 		}
 	}
-	*/
 }
 
-function function_6c15e157(var_f0566a69, var_d1bb0869)
+function spider_web_wobble( n_interations = 4, n_move_speed = .25 )
 {
-	/*
-	if(!isdefined(var_f0566a69))
-	{
-		var_f0566a69 = 4;
-	}
-	if(!isdefined(var_d1bb0869))
-	{
-		var_d1bb0869 = 0.25;
-	}
-	self endon("death");
-	if(!isdefined(self.e_web))
-	{
+	self endon( "death" );
+	if ( !isDefined( self.e_web_model ) )
 		return;
-	}
-	if(!(isdefined(self.var_c8acfaf8) && self.var_c8acfaf8))
+	
+	if ( !IS_TRUE( self.b_spiderweb_is_wobbling ) )
 	{
-		self.var_c8acfaf8 = 1;
-		var_12295a2 = self.e_web.origin;
-		for(i = 0; i < var_f0566a69; i++)
+		self.b_spiderweb_is_wobbling = 1;
+		v_original_pos = self.e_web_model.origin;
+		for ( i = 0; i < n_interations; i++ )
 		{
-			var_45634a22 = (RandomFloatRange(0, 2), RandomFloatRange(0, 2), 0);
-			self.e_web moveto(var_12295a2 + var_45634a22, var_d1bb0869);
-			self.e_web waittill("movedone");
-			self.e_web moveto(var_12295a2, var_d1bb0869);
-			self.e_web waittill("movedone");
+			v_wobble_pos = ( randomFloatRange( 0, 2 ), randomFloatRange( 0, 2 ), 0 );
+			self.e_web_model moveto( v_original_pos + v_wobble_pos, n_move_speed );
+			self.e_web_model waittill( "movedone" );
+			self.e_web_model moveto( v_original_pos, n_move_speed );
+			self.e_web_model waittill( "movedone" );
 		}
-		self.var_c8acfaf8 = 0;
+		self.b_spiderweb_is_wobbling = 0;
 	}
-	*/
 }
 
-function function_17a41767(var_a6a648f0)
+function set_widows_cocoon_fx()
 {
-	/*
-	self endon("death");
-	self.var_93100ec2 = 1;
-	if(isdefined(self.var_61f7b3a0) && self.var_61f7b3a0)
+	self waittill( "death" );
+	if ( isDefined( self ) )
 	{
-		var_ab201dd8 = util::spawn_model("tag_origin", self.origin, self.angles);
-		var_ab201dd8 thread scene::Play("scene_zm_dlc2_thrasher_attack_swing_swipe", self);
-		self waittill("hash_507023cf");
-		var_a6a648f0 thread function_6b1cc9fb(1);
-		var_a6a648f0 notify("hash_bbf62f57");
-		self.var_93100ec2 = 0;
-		return;
+		if ( self clientfield::get( "widows_wine_wrapping" ) )
+			self clientfield::set( "widows_wine_wrapping", 0 );
+		
 	}
-	if(var_a6a648f0.var_cb6fa5c5 > 2)
-	{
-		self.var_b1b7c1b7 = 1;
-	}
-	else
-	{
-		self thread function_e0f04a8a();
-	}
-	self ASMSetAnimationRate(0.1);
-	self ai::set_ignoreall(1);
-	self clientfield::set("widows_wine_wrapping", 1);
-	self thread function_81936417();
-	var_a6a648f0 thread function_6c15e157(4, 0.125);
-	var_a6a648f0 waittill("hash_bbf62f57");
-	self ASMSetAnimationRate(1);
-	self ai::set_ignoreall(0);
-	self clientfield::set("widows_wine_wrapping", 0);
-	self notify("hash_af52d2f8");
-	self.var_93100ec2 = 0;
-	self.var_b1b7c1b7 = 0;
-	*/
 }
 
-function function_81936417()
+function set_immune_to_web_for_time( n_delay_timer = 5 )
 {
-	/*
-	self waittill("death");
-	if(isdefined(self))
-	{
-		if(self clientfield::get("widows_wine_wrapping"))
-		{
-			self clientfield::set("widows_wine_wrapping", 0);
-		}
-	}
-	*/
+	self endon( "death" );
+	self endon( "zombie_freed_from_web" );
+	self.b_immune_to_web_stick = 0;
+	wait n_delay_timer;
+	self.b_immune_to_web_stick = 1;
 }
 
-function function_e0f04a8a(var_4639e1cf)
+function spider_web_prompt_and_visiblity_func( player )
 {
-	/*
-	if(!isdefined(var_4639e1cf))
+	if ( !player zm_utility::is_player_looking_at( self.origin, .4, 0 ) || !player zm_magicbox::can_buy_weapon() )
 	{
-		var_4639e1cf = 5;
-	}
-	self endon("death");
-	self endon("hash_af52d2f8");
-	self.var_b1b7c1b7 = 0;
-	wait(var_4639e1cf);
-	self.var_b1b7c1b7 = 1;
-	*/
-}
-
-function function_e433eb78(player)
-{
-	/*
-	if(!player zm_utility::is_player_looking_at(self.origin, 0.4, 0) || !player zm_magicbox::can_buy_weapon())
-	{
-		self setHintString("");
+		self setHintString( "" );
 		return 0;
 	}
-	self setHintString(&"ZM_ISLAND_TEAR_WEB");
+	self setHintString( "Hold ^3&&1^7 to tear off Webs" );
 	return 1;
-	*/
 }
 
-function function_7495ed75()
+function spider_web_should_ignore_sight_checks()
 {
-	/*
-	if(!isdefined(level.var_d3b40681))
-	{
+	if ( !isDefined( level.a_spider_webs ) )
 		return 0;
-	}
-	var_a15343e5 = 0;
-	foreach(e_spider_web_door_trigger in level.var_d3b40681)
+	
+	b_ignore_sight = 0;
+	foreach ( e_door_web_trigger in level.a_spider_webs )
 	{
-		if(!(isdefined(e_spider_web_door_trigger.b_web_active) && e_spider_web_door_trigger.b_web_active))
-		{
+		if ( !IS_TRUE( e_door_web_trigger.b_web_on ) )
 			continue;
-		}
-		foreach(player in level.players)
+		
+		foreach ( player in level.players )
 		{
-			if(player == self)
-			{
+			if ( player == self )
 				continue;
-			}
-			if(isdefined(player.reviveTrigger) && self istouching(player.reviveTrigger) && self util::is_player_looking_at(player.reviveTrigger.origin, 0.6, 0) && Distance2DSquared(self.origin, e_spider_web_door_trigger.origin) < 14400)
+			
+			if ( isDefined( player.revivetrigger ) && self isTouching( player.revivetrigger ) && self util::is_player_looking_at( player.revivetrigger.origin, .6, 0 ) && distance2dSquared( self.origin, e_door_web_trigger.origin ) < 14400 )
 			{
-				var_a15343e5 = 1;
+				b_ignore_sight = 1;
 				break;
 			}
 		}
-		if(var_a15343e5)
-		{
+		if ( b_ignore_sight )
 			break;
-		}
+		
 	}
-	return var_a15343e5;
-	*/
+	return b_ignore_sight;
 }
 
-function function_c915f7a9()
+function spider_web_unitrigger_think()
 {
-	/*
-	var_a6a648f0 = self.stub.var_a6a648f0;
-	var_a6a648f0 endon("hash_bbf62f57");
-	while(1)
+	e_web_trigger = self.stub.e_web_trigger;
+	e_web_trigger endon( "web_torn" );
+	while ( 1 )
 	{
-		self waittill("trigger", e_who);
-		e_who.var_77f9de0d = self.stub.var_a6a648f0;
-		if(e_who zm_laststand::is_reviving_any())
-		{
+		self waittill( "trigger", e_who );
+		e_who.e_using_web_trigger = self.stub.e_web_trigger;
+		
+		if ( e_who zm_laststand::is_reviving_any() )
 			continue;
-		}
-		if(e_who.IS_DRINKING > 0)
-		{
+		
+		if ( e_who.is_drinking > 0 )
 			continue;
-		}
-		if(!e_who zm_magicbox::can_buy_weapon())
-		{
+		
+		if ( !e_who zm_magicbox::can_buy_weapon() )
 			continue;
-		}
-		if(!zm_utility::is_player_valid(e_who))
-		{
+		
+		if ( !zm_utility::is_player_valid( e_who ) )
 			continue;
-		}
+		
 		else
+			e_who notify( "tearing_web" );
+		
+		if ( isDefined( self.related_parent ) )
+			self.related_parent notify( "trigger_activated", e_who );
+		
+		if ( !isDefined( e_who.usebar ) )
 		{
-			e_who notify("hash_8c63654c");
-		}
-		if(isdefined(self.related_parent))
-		{
-			self.related_parent notify("trigger_activated", e_who);
-		}
-		if(!isdefined(e_who.useBar))
-		{
-			if(isdefined(level.var_922007f3))
-			{
-				self thread [[level.var_922007f3]](e_who);
-			}
+			if ( isDefined( level.ptr_do_web_tear_cb ) )
+				self thread [ [ level.ptr_do_web_tear_cb ] ]( e_who );
 			else
+				self thread complete_webtear();
+			
+			e_web_trigger thread do_webtear_effects();
+			str_notify = self util::waittill_any_ex( "webtear_succeed", "webtear_failed", "kill_trigger", e_web_trigger, "web_torn" );
+			if ( str_notify == "webtear_succeed" )
 			{
-				self thread function_8cf6fed9();
-			}
-			var_a6a648f0 thread function_6b1cc9fb();
-			var_a7579b72 = self util::waittill_any_ex("webtear_succeed", "webtear_failed", "kill_trigger", var_a6a648f0, "web_torn");
-			if(var_a7579b72 == "webtear_succeed")
-			{
-				e_who.var_7f3c8431 = 1;
-				e_who function_20915a1a();
-				var_a6a648f0 thread function_6b1cc9fb(1);
-				var_a6a648f0 notify("hash_bbf62f57");
+				e_who.b_web_tear_done = 1;
+				e_who player_award_webtear_points();
+				e_web_trigger thread do_webtear_effects( 1 );
+				e_web_trigger notify( "web_torn" );
 				break;
 			}
 			else
-			{
-				var_a6a648f0 thread function_6b1cc9fb(1);
-			}
+				e_web_trigger thread do_webtear_effects( 1 );
+			
 		}
 	}
-	*/
 }
 
-function function_8cf6fed9()
+function complete_webtear()
 {
-	/*
-	wait(0.25);
-	self notify("hash_cca6ad64");
-	*/
+	wait .25;
+	self notify( "webtear_succeed" );
 }
 
-function spider_watch_grenade_fire()
+function spider_webs_grenade_watcher()
 {
-	/*
-	self endon("death");
-	while(1)
+	self endon( "death" );
+	while ( 1 )
 	{
-		self waittill("grenade_fire", e_grenade, weapon);
-		e_grenade thread function_a5ee3628(weapon, self);
+		self waittill( "grenade_fire", e_grenade, weapon );
+		e_grenade thread spider_webs_grenade_impact_think( weapon, self );
 	}
-	*/
 }
 
-function spider_watch_grenade_launcher_fire()
+function spider_webs_grenade_launcher_watcher()
 {
-	/*
-	self endon("death");
-	while(1)
+	self endon( "death" );
+	while ( true )
 	{
-		self waittill("grenade_launcher_fire", e_grenade, weapon);
-		e_grenade thread function_a5ee3628(weapon, self);
+		self waittill( "grenade_launcher_fire", e_grenade, weapon );
+		e_grenade thread spider_webs_grenade_impact_think( weapon, self );
 	}
-	*/
 }
 
-function spider_watch_missile_fire()
+function spider_webs_missile_watcher()
 {
-	/*
-	self endon("death");
-	while(1)
+	self endon( "death" );
+	while ( true )
 	{
-		self waittill("missile_fire", e_projectile, weapon);
-		e_projectile thread function_5165d3f2(weapon, self);
+		self waittill( "missile_fire", e_projectile, weapon );
+		e_projectile thread spider_webs_missile_impact_think( weapon, self );
 	}
-	*/
 }
 
-function function_a5ee3628(weapon, player)
+function spider_webs_grenade_impact_think( weapon, player )
 {
-	/*
-	self endon("death");
-	if(!isdefined(level.var_d3b40681))
-	{
+	self endon( "death" );
+	if ( !isDefined( level.a_spider_webs ) )
 		return;
-	}
-	if(weapon === GetWeapon("sticky_grenade_widows_wine"))
+	
+	if ( weapon === getWeapon( "sticky_grenade_widows_wine" ) )
 	{
-		self waittill("stationary");
-		var_9f172edf = self.origin;
-		v_normal = (0, 0, 0);
+		self waittill( "stationary" );
+		e_grenade = self.origin;
+		v_normal = ( 0, 0, 0 );
 	}
 	else
 	{
-		self waittill("grenade_bounce", var_9f172edf, v_normal, hitEnt, str_surface);
+		self waittill( "grenade_bounce", e_grenade, v_normal, hitent, str_surface );
 	}
-	foreach(trigger in level.var_d3b40681)
+	
+	foreach ( trigger in level.a_spider_webs )
 	{
-		if(!(isdefined(trigger.b_web_active) && trigger.b_web_active))
-		{
+		if ( !IS_TRUE( trigger.b_web_on ) )
 			continue;
-		}
-		if(self istouching(trigger) || trigger.e_web === hitEnt && Distance2DSquared(trigger.origin, var_9f172edf) < 2500)
+		
+		if ( self isTouching( trigger ) || trigger.e_web_model === hitent && distance2dSquared( trigger.origin, e_grenade ) < 2500 )
 		{
-			self thread function_96ebe65e(trigger, weapon, var_9f172edf, v_normal, player);
+			self thread spider_web_stick_grenade( trigger, weapon, e_grenade, v_normal, player );
 			return;
 		}
 	}
-	self thread function_8f6a18e4(player);
-	*/
+	self thread grenade_stick_to_webs_think( player );
 }
 
-function function_8f6a18e4(player)
+function grenade_stick_to_webs_think( player )
 {
-	/*
-	var_68b0e214 = self.origin;
-	self waittill("death");
-	foreach(trigger in level.var_d3b40681)
+	v_impact_org = self.origin;
+	self waittill( "death" );
+	foreach ( trigger in level.a_spider_webs )
 	{
-		if(!isdefined(trigger.b_web_active) && trigger.b_web_active || (isdefined(trigger.var_e084d7bd) && trigger.var_e084d7bd))
-		{
+		if ( !IS_TRUE( trigger.b_web_on ) || IS_TRUE( trigger.b_grenade_stuck ) )
 			continue;
-		}
-		if(Distance2DSquared(trigger.origin, var_68b0e214) < 2500)
+		
+		if ( distance2dSquared( trigger.origin, v_impact_org ) < 2500 )
 		{
-			player.var_3b4423fd = 1;
-			trigger thread function_6b1cc9fb(1, var_68b0e214, undefined, 1);
-			trigger notify("hash_bbf62f57");
-			player function_20915a1a(1, 1);
+			player.b_web_tear_with_grenade_done = 1;
+			trigger thread do_webtear_effects( 1, v_impact_org, undefined, 1 );
+			trigger notify( "web_torn" );
+			player player_award_webtear_points( 1, 1 );
 			return;
 		}
 	}
-	*/
 }
 
-function function_1a393131()
+function spider_web_door_watch_for_grenade_stuck()
 {
-	/*
-	self endon("death");
-	self endon("hash_bbf62f57");
-	while(1)
+	self endon( "death" );
+	self endon( "web_torn" );
+	while ( true )
 	{
-		self.e_web waittill("grenade_stuck", e_grenade);
+		self.e_web_model waittill( "grenade_stuck", e_grenade );
 	}
-	*/
 }
 
-function function_5165d3f2(weapon, player)
+function spider_webs_missile_impact_think( weapon, player )
 {
-	/*
-	if(!isdefined(level.var_d3b40681) || weapon == GetWeapon("skull_gun"))
-	{
+	if ( !isDefined( level.a_spider_webs ) || weapon == getWeapon( "skull_gun" ) )
 		return;
-	}
-	self waittill("death");
-	if(isdefined(self) && isdefined(self.origin))
-	{
-		var_318d5542 = self.origin;
-	}
+	
+	self waittill( "death" );
+	if ( isDefined( self ) && isDefined( self.origin ) )
+		v_imapact_origin = self.origin;
 	else
-	{
 		return;
-	}
-	foreach(trigger in level.var_d3b40681)
+	
+	foreach ( trigger in level.a_spider_webs )
 	{
-		if(!isdefined(trigger.b_web_active) && trigger.b_web_active || (isdefined(trigger.var_e084d7bd) && trigger.var_e084d7bd))
-		{
+		if ( !IS_TRUE( trigger.b_web_on ) || IS_TRUE( trigger.b_grenade_stuck ) )
 			continue;
-		}
-		if(Distance2DSquared(trigger.origin, var_318d5542) < 10000)
+		
+		if ( distance2dSquared( trigger.origin, v_imapact_origin ) < 10000 )
 		{
-			if(weapon == GetWeapon("launcher_standard") || weapon == GetWeapon("launcher_standard_upgraded"))
-			{
-				player.var_86009342 = 1;
-			}
-			else if(weapon == GetWeapon("ray_gun") || weapon == GetWeapon("ray_gun_upgraded"))
-			{
-				player.var_ee8976c8 = 1;
-			}
-			trigger thread function_6b1cc9fb(1, var_318d5542, undefined, 1);
-			trigger notify("hash_bbf62f57");
-			player function_20915a1a(1, 1);
+			if ( weapon == getWeapon( "launcher_standard" ) || weapon == getWeapon( "launcher_standard_upgraded" ) )
+				player.b_web_tear_with_launcher_done = 1;
+			else if ( weapon == getWeapon( "ray_gun" ) || weapon == getWeapon( "ray_gun_upgraded" ) )
+				player.b_web_tear_with_raygun_done = 1;
+			
+			trigger thread do_webtear_effects( 1, v_imapact_origin, undefined, 1 );
+			trigger notify( "web_torn" );
+			player player_award_webtear_points( 1, 1 );
 			return;
 		}
 	}
-	*/
 }
 
-function function_96ebe65e(trigger, weapon, var_9f172edf, v_normal, player)
+function spider_web_stick_grenade( trigger, weapon, e_grenade, v_normal, player )
 {
-	/*
-	trigger endon("death");
-	trigger endon("hash_bbf62f57");
-	player endon("death");
-	if(weapon == GetWeapon("frag_grenade"))
-	{
-		var_a8dac2c5 = player function_5f90b785(var_9f172edf - v_normal, (0, 0, 0), GetWeapon("frag_grenade_web"), weapon.fusetime / 1000);
-	}
-	else if(weapon == GetWeapon("bouncingbetty"))
-	{
-		var_a8dac2c5 = player function_5f90b785(var_9f172edf - v_normal, (0, 0, 0), GetWeapon("bouncingbetty_web"), weapon.fusetime / 1000);
-	}
-	else if(weapon == GetWeapon("sticky_grenade_widows_wine"))
-	{
-		var_a8dac2c5 = self;
-	}
+	trigger endon( "death" );
+	trigger endon( "web_torn" );
+	player endon( "death" );
+	
+	if ( weapon == getWeapon( "frag_grenade" ) )
+		e_sticky_grenade = player magicGrenadeManualPlayer( e_grenade - v_normal, ( 0, 0, 0 ), getWeapon( "frag_grenade_web" ), weapon.fusetime / 1000 );
+	else if ( weapon == getWeapon( "bouncingbetty" ) )
+		e_sticky_grenade = player magicGrenadeManualPlayer( e_grenade - _normal, ( 0, 0, 0 ), getWeapon( "bouncingbetty_web" ), weapon.fusetime / 1000 );
+	else if ( weapon == getWeapon( "sticky_grenade_widows_wine" ) )
+		e_sticky_grenade = self;
 	else
-	{
 		return;
-	}
-	var_a8dac2c5.angles = self.angles;
-	if(var_a8dac2c5 != self)
-	{
+	
+	e_sticky_grenade.angles = self.angles;
+	if ( e_sticky_grenade != self )
 		self delete();
-	}
-	trigger thread function_52f52ae0(var_a8dac2c5);
-	var_a8dac2c5 clientfield::set("play_grenade_stuck_in_web_fx", 1);
-	var_a8dac2c5 waittill("death");
-	if(!(isdefined(trigger.var_e084d7bd) && trigger.var_e084d7bd))
+	
+	trigger thread delete_grenade_on_tear( e_sticky_grenade );
+	e_sticky_grenade clientfield::set( "play_grenade_stuck_in_web_fx", 1 );
+	e_sticky_grenade waittill( "death" );
+	if ( !IS_TRUE( trigger.b_grenade_stuck ) )
 	{
-		player.var_3b4423fd = 1;
-		trigger thread function_6b1cc9fb(1, var_9f172edf - v_normal, undefined, 1);
-		player function_20915a1a(1, 1);
-		trigger notify("hash_bbf62f57");
+		player.b_web_tear_with_grenade_done = 1;
+		trigger thread do_webtear_effects( 1, e_grenade - v_normal, undefined, 1 );
+		player player_award_webtear_points( 1, 1 );
+		trigger notify( "web_torn" );
 	}
-	*/
 }
 
-function function_52f52ae0(var_a8dac2c5)
+function delete_grenade_on_tear( e_sticky_grenade )
 {
-	/*
-	var_a8dac2c5 endon("death");
-	self waittill("hash_bbf62f57");
-	var_a8dac2c5 delete();
-	*/
+	e_sticky_grenade endon( "death" );
+	self waittill( "web_torn" );
+	e_sticky_grenade delete();
 }
 
-function function_eca55d4c()
+function do_webtear_effects( b_destroyed = 0, v_origin, v_angles, b_is_explosive = 0 )
 {
-	/*
-	self endon("death");
-	self endon("hash_bbf62f57");
-	self.e_destructible SetCanDamage(1);
-	self.b_destroyed = 0;
-	var_50f39d2b = level.players[0];
-	while(!self.b_destroyed)
+	if ( !isDefined( self.s_spider_web_fx ) )
+		return;
+	
+	if ( isDefined( v_origin ) )
+		v_fx_org = v_origin;
+	else
+		v_fx_org = self.s_spider_web_fx.origin;
+	
+	if ( isDefined( v_angles ) )
+		v_fx_ang = v_angles;
+	else
+		v_fx_ang = self.s_spider_web_fx.angles;
+	
+	if ( !isDefined( self.e_webtear_fx_model ) && !b_destroyed )
 	{
-		self.e_destructible waittill("damage", n_damage, e_attacker, var_a3382de1, v_point, str_means_of_death, var_c4fe462, var_e64d69f9, var_c04aef90, w_weapon);
-		if(zm_utility::is_player_valid(e_attacker) && str_means_of_death == "MOD_MELEE")
-		{
-			if(w_weapon === GetWeapon("bowie_knife"))
-			{
-				self.b_destroyed = 1;
-				var_50f39d2b = e_attacker;
-				var_50f39d2b.var_f795ee17 = 1;
-			}
-		}
+		self.e_webtear_fx_model = util::spawn_model( "tag_origin", v_fx_org, v_fx_ang );
+		self.e_webtear_fx_model set_webtear_fx( 1, self.s_spider_web_fx.script_string );
+	}
+	else if ( !isDefined( self.e_webtear_fx_model ) && b_destroyed )
+	{
+		self.e_webtear_fx_model = util::spawn_model( "tag_origin", v_fx_org, v_fx_ang );
+		if ( b_is_explosive )
+			self.e_webtear_fx_model set_webtear_fx( 1, "spider_web_particle_explosive", 1 );
 		else
-		{
-			self.health = 10000;
-			wait(0.05);
-		}
-	}
-	var_50f39d2b function_20915a1a();
-	self thread function_6b1cc9fb(1);
-	if(isdefined(self.var_ae94a833))
-	{
-		self thread [[self.var_ae94a833]]();
+			self.e_webtear_fx_model set_webtear_fx( 1, self.s_spider_web_fx.script_string, 1 );
+		
+		util::wait_network_frame();
+		if ( isDefined( self.e_webtear_fx_model ) )
+			self.e_webtear_fx_model delete();
+		
 	}
 	else
 	{
-		self notify("hash_bbf62f57");
+		self.e_webtear_fx_model set_webtear_fx( 0 );
+		if ( b_destroyed )
+			self.e_webtear_fx_model set_webtear_fx( 1, self.s_spider_web_fx.script_string, 1 );
+		
+		util::wait_network_frame();
+		if ( isDefined( self.e_webtear_fx_model ) )
+			self.e_webtear_fx_model delete();
+		
 	}
-	*/
 }
 
-function function_6b1cc9fb(b_destroyed, v_origin, v_angles, var_ef07eb9d)
+function set_webtear_fx( b_stop_fx = 1, str_type, b_completed = 0 )
 {
-	/*
-	if(!isdefined(b_destroyed))
+	if ( !b_stop_fx )
 	{
-		b_destroyed = 0;
-	}
-	if(!isdefined(var_ef07eb9d))
-	{
-		var_ef07eb9d = 0;
-	}
-	if(!isdefined(self.s_web_struct))
-	{
+		self clientfield::set( "play_spider_web_tear_fx", 0 );
 		return;
 	}
-	if(isdefined(v_origin))
-	{
-		var_fde3dbd8 = v_origin;
-	}
-	else
-	{
-		var_fde3dbd8 = self.s_web_struct.origin;
-	}
-	if(isdefined(v_angles))
-	{
-		var_e1a86b86 = v_angles;
-	}
-	else
-	{
-		var_e1a86b86 = self.s_web_struct.angles;
-	}
-	if(!isdefined(self.var_160abeb7) && !b_destroyed)
-	{
-		self.var_160abeb7 = util::spawn_model("tag_origin", var_fde3dbd8, var_e1a86b86);
-		self.var_160abeb7 function_9b41e249(1, self.s_web_struct.script_string);
-	}
-	else if(!isdefined(self.var_160abeb7) && b_destroyed)
-	{
-		self.var_160abeb7 = util::spawn_model("tag_origin", var_fde3dbd8, var_e1a86b86);
-		if(var_ef07eb9d)
-		{
-			self.var_160abeb7 function_9b41e249(1, "spider_web_particle_explosive", 1);
-		}
-		else
-		{
-			self.var_160abeb7 function_9b41e249(1, self.s_web_struct.script_string, 1);
-		}
-		util::wait_network_frame();
-		if(isdefined(self.var_160abeb7))
-		{
-			self.var_160abeb7 delete();
-		}
-	}
-	else
-	{
-		self.var_160abeb7 function_9b41e249(0);
-		if(b_destroyed)
-		{
-			self.var_160abeb7 function_9b41e249(1, self.s_web_struct.script_string, 1);
-		}
-		util::wait_network_frame();
-		if(isdefined(self.var_160abeb7))
-		{
-			self.var_160abeb7 delete();
-		}
-	}
-	*/
-}
-
-function function_9b41e249(var_eddcecaa, str_type, var_a807fb73)
-{
-	/*
-	if(!isdefined(var_eddcecaa))
-	{
-		var_eddcecaa = 1;
-	}
-	if(!isdefined(var_a807fb73))
-	{
-		var_a807fb73 = 0;
-	}
-	if(!var_eddcecaa)
-	{
-		self clientfield::set("play_spider_web_tear_fx", 0);
-		return;
-	}
-	switch(str_type)
+	switch ( str_type )
 	{
 		case "spider_web_particle_bgb":
 		{
-			if(!var_a807fb73)
-			{
-				self clientfield::set("play_spider_web_tear_fx", 1);
-			}
+			if ( !b_completed )
+				self clientfield::set( "play_spider_web_tear_fx", 1 );
 			else
-			{
-				self clientfield::set("play_spider_web_tear_complete_fx", 1);
-			}
+				self clientfield::set( "play_spider_web_tear_complete_fx", 1 );
+			
 			break;
 		}
 		case "spider_web_particle_perk_machine":
 		{
-			if(!var_a807fb73)
-			{
-				self clientfield::set("play_spider_web_tear_fx", 2);
-			}
+			if ( !b_completed )
+				self clientfield::set( "play_spider_web_tear_fx", 2 );
 			else
-			{
-				self clientfield::set("play_spider_web_tear_complete_fx", 2);
-			}
+				self clientfield::set( "play_spider_web_tear_complete_fx", 2 );
+			
 			break;
 		}
 		case "spider_web_particle_doorbuy":
 		{
-			if(!var_a807fb73)
-			{
-				self clientfield::set("play_spider_web_tear_fx", 3);
-			}
+			if ( !b_completed )
+				self clientfield::set( "play_spider_web_tear_fx", 3 );
 			else
-			{
-				self clientfield::set("play_spider_web_tear_complete_fx", 3);
-			}
+				self clientfield::set( "play_spider_web_tear_complete_fx", 3 );
+			
 			break;
 		}
 		case "spider_web_particle_explosive":
 		{
-			self clientfield::set("play_spider_web_tear_complete_fx", 4);
+			self clientfield::set( "play_spider_web_tear_complete_fx", 4 );
 			break;
 		}
 		default:
 		{
-			if(!var_a807fb73)
-			{
-				self clientfield::set("play_spider_web_tear_fx", 2);
-			}
+			if ( !b_completed )
+				self clientfield::set( "play_spider_web_tear_fx", 2 );
 			else
-			{
-				self clientfield::set("play_spider_web_tear_complete_fx", 2);
-			}
+				self clientfield::set( "play_spider_web_tear_complete_fx", 2 );
+			
 			break;
 		}
 	}
-	*/
 }
 
-function function_d717ef02()
+function spider_score_round_cap_reset()
 {
-	/*
-	self endon("death");
-	self.var_255c77dc = 0;
-	while(1)
+	self endon( "death" );
+	self.spider_score_this_round = 0;
+	while ( 1 )
 	{
-		level waittill("end_of_round");
-		self.var_255c77dc = 0;
+		level waittill( "end_of_round" );
+		self.spider_score_this_round = 0;
 	}
-	*/
 }
 
-function function_20915a1a(n_multiplier, var_2b5697d)
+function player_award_webtear_points( n_multiplier = 1, b_grenade = 0 )
 {
-	/*
-	if(!isdefined(n_multiplier))
+	self endon( "death" );
+	if ( self.spider_score_this_round < 100 )
 	{
-		n_multiplier = 1;
+		n_webtear_points = ( 10 * n_multiplier ) * zm_score::get_points_multiplier( self );
+		self zm_score::add_to_player_score( n_webtear_points );
+		self.spider_score_this_round = self.spider_score_this_round + n_webtear_points;
 	}
-	if(!isdefined(var_2b5697d))
-	{
-		var_2b5697d = 0;
-	}
-	self endon("death");
-	if(self.var_255c77dc < 100)
-	{
-		var_86b6ca3c = 10 * n_multiplier * zm_score::get_points_multiplier(self);
-		self zm_score::add_to_player_score(var_86b6ca3c);
-		self.var_255c77dc = self.var_255c77dc + var_86b6ca3c;
-	}
-	self notify("hash_52472986");
-	if(var_2b5697d)
-	{
-		self notify("hash_7ae66b0a");
-	}
-	if(self.var_7f3c8431 && self.var_f795ee17 && self.var_86009342 && self.var_3b4423fd && self.var_ee8976c8 && self.var_5c159c87)
-	{
-		self notify("hash_1327d1d5");
-	}
-	*/
+	
+	self notify( "spider_web_destroyed" );
+	
+	if ( b_grenade )
+		self notify( "spider_web_grenade_destroyed" );
+	
+	if ( self.b_web_tear_done && self.b_web_tear_perk_done && self.b_web_tear_with_launcher_done && self.b_web_tear_with_grenade_done && self.b_web_tear_with_raygun_done && self.b_web_tear_with_mirg_done )
+		self notify( "spider_web_destroyed_no_knife" );
+	
 }
 
-function function_f67965ad(var_4e7dce73)
+function can_be_webbed( v_web_origin )
 {
-	/*
-	if(level.round_number === 1)
-	{
+	if ( level.round_number === 1 )
 		return 1;
-	}
-	if(zm_utility::check_point_in_enabled_zone(var_4e7dce73, 1))
+	
+	if ( zm_utility::check_point_in_enabled_zone( v_web_origin, 1 ) )
 	{
-		foreach(player in level.players)
+		foreach ( player in level.players )
 		{
-			if(DistanceSquared(player.origin, var_4e7dce73) < 640000)
-			{
+			if ( distanceSquared( player.origin, v_web_origin ) < 640000 )
 				return 0;
-			}
-			if(player util::is_player_looking_at(var_4e7dce73, 0.5, 0) && DistanceSquared(player.origin, var_4e7dce73) < 1440000)
-			{
+			
+			if ( player util::is_player_looking_at( v_web_origin, 0.5, 0 ) && distanceSquared( player.origin, v_web_origin ) < 1440000 )
 				return 0;
-			}
+			
 		}
 		return 1;
 	}
+	return 0;
+}
+
+function spider_web_perks_init()
+{
+	level.a_perk_triggers = getEntArray( "zombie_vending", "targetname" );
+	spider_web_perks_setup();
+	level.ptr_do_web_tear_cb = &do_spider_web_tear;
+	set_spider_web_perk_models();
+}
+
+function set_spider_web_perk_models()
+{
+	foreach ( e_perk_web in level.a_perk_webs )
+	{
+		t_perk = arrayGetClosest( e_perk_web.origin, level.a_perk_triggers );
+		
+		switch ( t_perk.script_noteworthy )
+		{
+			case "specialty_doubletap2":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_doubletap2");
+				break;
+			}
+			case "specialty_quickrevive":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_revive");
+				break;
+			}
+			case "specialty_fastreload":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_sleight");
+				break;
+			}
+			case "specialty_staminup":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_marathon");
+				break;
+			}
+			case "specialty_armorvest":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_jugg");
+				break;
+			}
+			case "specialty_additionalprimaryweapon":
+			{
+				e_perk_web.e_destructible setModel("p7_zm_isl_web_vending_three_gun");
+				break;
+			}
+			default:
+				break;
+			
+		}
+		e_perk_web.e_destructible.origin = t_perk.machine.origin;
+		e_perk_web.e_destructible.angles = t_perk.machine.angles;
+	}
+}
+
+function spider_web_perks_setup()
+{
+	level.a_perk_webs = [];
+	a_structs = struct::get_array( "web_perk_structs", "script_noteworthy" );
+	for ( i = 0; i < a_structs.size; i++ )
+	{
+		level.a_perk_webs[ i ] = a_structs[ i ];
+		level.a_perk_webs[ i ].t_webbing_extra_damage = getEnt( level.a_perk_webs[ i ].target, "targetname" );
+		level.a_perk_webs[ i ].e_destructible = getEnt( level.a_perk_webs[ i ].t_webbing_extra_damage.target, "targetname" );
+		
+		level.a_perk_webs[ i ].e_destructible.v_destructible_origin = level.a_perk_webs[ i ].e_destructible.origin;
+		level.a_perk_webs[ i ].e_destructible.v_destructible_angles = level.a_perk_webs[ i ].e_destructible.angles;
+		level.a_perk_webs[ i ].e_destructible.v_off_pos = level.a_perk_webs[ i ].e_destructible.v_destructible_origin - vectorScale( ( 0, 0, 1 ), 256 );
+		
+		level.a_perk_webs[ i ].e_destructible setCanDamage( 1 );
+		level.a_perk_webs[ i ].e_destructible clientfield::set( "web_fade_material", .5 );
+		
+		if ( isDefined( level.a_perk_webs[ i ].t_webbing_extra_damage ) )
+		{
+			t_webbing_extra_damage = level.a_perk_webs[ i ].t_webbing_extra_damage;
+			t_webbing_extra_damage.e_destructible = level.a_perk_webs[ i ].e_destructible;
+			t_webbing_extra_damage.s_spider_web_fx = struct::get( t_webbing_extra_damage.target, "targetname" );
+			t_webbing_extra_damage.b_web_on = 1;
+			t_webbing_extra_damage.n_perk_web_index = i;
+			t_webbing_extra_damage thread spider_web_perks_think();
+		}
+		level.a_perk_webs[ i ] set_perk_active_state( 0 );
+		level.a_perk_webs[ i ] spider_web_create_webtear_perk_trigger();
+		level.a_perk_webs[ i ].n_perk_web_index = i;
+		level.a_perk_webs[ i ].e_destructible.n_perk_web_index = i;
+		level.a_perk_webs[ i ].s_unitrigger.n_perk_web_index = i;
+	}
+}
+
+function spider_web_perks_think()
+{
+	self endon( "death" );
+	while ( !isDefined( level.a_spider_webs ) )
+		wait 1;
+	
+	array::add( level.a_spider_webs, self );
+	while ( 1 )
+	{
+		self waittill( "web_torn" );
+		if ( self.b_web_on )
+			level.a_perk_webs[ self.n_perk_web_index ] thread spider_web_perks_on_spider_rounds();
+		
+	}
+}
+
+function spider_web_create_webtear_perk_trigger()
+{
+	if ( !isDefined( self.s_unitrigger ) )
+		s_unitrigger = spawnStruct();
 	else
+		s_unitrigger = self.s_unitrigger;
+	
+	s_unitrigger.origin = self.origin;
+	s_unitrigger.angles = self.angles;
+	s_unitrigger.script_unitrigger_type = "unitrigger_box_use";
+	s_unitrigger.cursor_hint = "HINT_NOICON";
+	s_unitrigger.require_look_at = 0;
+	s_unitrigger.e_web_trigger = self.t_webbing_extra_damage;
+	s_unitrigger.related_parent = self;
+	s_unitrigger.script_width = 130;
+	s_unitrigger.script_length = 130;
+	s_unitrigger.script_height = 100;
+	s_unitrigger.prompt_and_visibility_func = &spider_web_prompt_and_visiblity_func;
+	self.s_unitrigger = s_unitrigger;
+	self.s_unitrigger.n_perk_web_index = self.n_perk_web_index;
+	self.b_occupied = 0;
+	self.b_destroyed = 0;
+	self.n_hits = 0;
+	zm_unitrigger::register_static_unitrigger( self.s_unitrigger, &spider_web_unitrigger_think );
+}
+
+function set_perk_active_state( b_enable )
+{
+	a_perk_triggers = getEntArray( "zombie_vending", "targetname" );
+	t_perk = arrayGetClosest( self.origin, a_perk_triggers );
+	t_perk triggerEnable( b_enable );
+}
+
+function spider_web_perks_on_spider_rounds( e_player )
+{
+	self deactivate_perk_spider_web( e_player );
+	level waittill( "enable_spider_round_webs" );
+	do
 	{
-		return 0;
+		b_do_web_perks = can_be_webbed( self.origin );
+		wait 2;
 	}
-	*/
+	while ( !IS_TRUE( b_do_web_perks ) );
+	self activate_perk_spider_web();
 }
 
-function function_3fd0c070()
+function activate_perk_spider_web()
 {
-	/*
-	/#
-		level flagsys::wait_till("Dev Block strings are not supported");
-		zm_devgui::function_4acecab5(&function_8457e10f);
-	#/
-	*/
+	if ( isDefined( self.t_webbing_extra_damage.s_spider_web_fx ) )
+	{
+		v_fx_org = self.t_webbing_extra_damage.s_spider_web_fx.origin;
+		v_fx_ang = self.t_webbing_extra_damage.s_spider_web_fx.angles;
+		self.t_webbing_extra_damage thread fx::play( "spider_web_perk_machine_reweb", v_fx_org, v_fx_org );
+	}
+	self.e_destructible show();
+	self.e_destructible solid();
+	self.t_webbing_extra_damage.b_web_on = 1;
+	zm_unitrigger::register_static_unitrigger( self.s_unitrigger, &spider_web_unitrigger_think );
+	self set_perk_active_state( 0 );
 }
 
-function function_8457e10f(cmd)
+function deactivate_perk_spider_web( e_player )
 {
-	/*
-	/#
-		switch(cmd)
-		{
-			case "Dev Block strings are not supported":
-			{
-				var_19764360 = get_favorite_enemy();
-				s_spawn_point = function_570247b9(var_19764360);
-				ai = zombie_utility::spawn_zombie(level.var_c38a4fee[0]);
-				if(isdefined(ai) && isdefined(s_spawn_point))
-				{
-					s_spawn_point thread spider_spawn_animation(ai, s_spawn_point);
-				}
-				break;
-			}
-			case "Dev Block strings are not supported":
-			{
-				var_19764360 = get_favorite_enemy();
-				s_spawn_point = function_570247b9(var_19764360);
-				ai = zombie_utility::spawn_zombie(level.var_c38a4fee[0]);
-				if(isdefined(ai) && isdefined(s_spawn_point))
-				{
-					s_spawn_point thread spider_spawn_animation(ai, s_spawn_point, 1);
-				}
-				break;
-			}
-			case "Dev Block strings are not supported":
-			{
-				a_enemies = GetAITeamArray(level.zombie_team);
-				if(a_enemies.size > 0)
-				{
-					foreach(e_enemy in a_enemies)
-					{
-						if(isdefined(e_enemy.b_is_spider) && e_enemy.b_is_spider)
-						{
-							e_enemy kill();
-						}
-					}
-				}
-				break;
-			}
-			case "Dev Block strings are not supported":
-			{
-				level.var_3013498 = level.round_number + 1;
-				zm_devgui::zombie_devgui_goto_round(level.var_3013498);
-				break;
-			}
-			case "Dev Block strings are not supported":
-			{
-				level.var_42034f6a = 100;
-				break;
-			}
-			case "Dev Block strings are not supported":
-			{
-				level.var_f618f3e1 = 1;
-				level.var_42034f6a = 100;
-				level notify("hash_9996f546");
-				util::wait_network_frame();
-				foreach(trigger in level.var_d3b40681)
-				{
-					if(!(isdefined(trigger.b_web_active) && trigger.b_web_active))
-					{
-						trigger notify("trigger", level.players[0], trigger);
-					}
-				}
-				break;
-			}
-		}
-	#/
-	*/
+	zm_unitrigger::unregister_unitrigger( self.s_unitrigger );
+	self.e_destructible notSolid();
+	self.e_destructible hide();
+	self.t_webbing_extra_damage notify( "web_torn" );
+	self.t_webbing_extra_damage.b_web_on = 0;
+	if ( zm_utility::is_player_valid( e_player ) )
+		e_player player_award_webtear_points();
+	
+	self set_perk_active_state( 1 );
+}
+
+function do_spider_web_tear( e_who )
+{
+	self thread do_spider_web_tear_fx( e_who );
+	self thread do_spider_web_tear_animation( e_who );
+}
+
+function do_spider_web_tear_fx( player )
+{
+	self endon( "kill_trigger" );
+	self endon( "webtear_succeed" );
+	self endon( "webtear_failed" );
+	self endon( "webtear_over" );
+	while ( 1 )
+	{
+		playFx( level._effect[ "building_dust" ], player getPlayerCameraPos(), player.angles );
+		wait .5;
+	}
+}
+
+function do_spider_web_tear_animation( player, webtear_time = 2 )
+{
+	e_web_trigger = self.stub.e_web_trigger;
+	wait .01;
+	if ( !isDefined( self ) )
+	{
+		if ( isDefined( e_web_trigger.e_webtear_fx_model ) )
+			e_web_trigger.e_webtear_fx_model set_webtear_fx( 0 );
+		
+		return;
+	}
+	w_bowie_knife = getWeapon( "bowie_knife" );
+	w_widows_wine_bowie_knife = getWeapon( "bowie_knife_widows_wine" );
+	b_has_bowie_knife = player hasWeapon( w_bowie_knife ) || player hasWeapon( w_widows_wine_bowie_knife );
+	if ( b_has_bowie_knife )
+		webtear_time = webtear_time / 2;
+	
+	webtear_time = int( webtear_time * 1000 );
+	self.webtear_time = webtear_time;
+	self.webtear_length = self.webtear_time;
+	self.webtear_start_time = getTime();
+	webtear_length = self.webtear_length;
+	webtear_start_time = self.webtear_start_time;
+	webtear_end_time = self.webtear_start_time + self.webtear_length;
+	if ( webtear_length > 0 )
+	{
+		player zm_utility::disable_player_move_states( 1 );
+		player zm_utility::increment_is_drinking();
+		w_prev_weapon = player getCurrentWeapon();
+		w_zombie_spider_web_tear = getWeapon( "zombie_spider_web_tear" );
+		player giveWeapon( w_zombie_spider_web_tear );
+		util::wait_network_frame();
+		player switchToWeapon( w_zombie_spider_web_tear );
+		player thread spider_webtear_use_bar_think( webtear_start_time, webtear_length );
+		while ( isDefined( self ) && player player_is_webtear_valid( self ) && getTime() < webtear_end_time )
+			WAIT_SERVER_FRAME;
+		
+		player notify( "webtear_over" );
+		if ( isDefined( w_prev_weapon ) )
+			player switchToWeapon( w_prev_weapon );
+		
+		if ( isDefined( w_zombie_spider_web_tear ) )
+			player takeWeapon( w_zombie_spider_web_tear );
+		
+		if ( IS_DRINKING( player.is_drinking ) )
+			player zm_utility::decrement_is_drinking();
+		
+		player zm_utility::enable_player_move_states();
+	}
+	if ( isDefined( player.usebartext ) )
+		player.usebartext hud::destroyelem();
+	
+	if ( isDefined( player.usebar ) )
+		player.usebar hud::destroyelem();
+	
+	if ( isDefined( self ) && player player_is_webtear_valid( self ) && ( self.webtear_time <= 0 || getTime() >= webtear_end_time ) )
+	{
+		self notify( "webtear_succeed" );
+		if ( b_has_bowie_knife )
+			player.b_web_tear_perk_done = 1;
+		
+		return;
+	}
+	
+	if ( isDefined( self ) )
+		self notify( "webtear_failed" );
+	else if ( isDefined( e_web_trigger.e_webtear_fx_model ) )
+		e_web_trigger.e_webtear_fx_model set_webtear_fx( 0 );
+	
+}
+
+function player_is_webtear_valid( s_unitrigger )
+{
+	if ( self laststand::player_is_in_laststand() || self zm_laststand::is_reviving_any() )
+		return 0;
+	
+	if ( !self useButtonPressed() )
+		return 0;
+	
+	if ( !self zm_utility::is_player_looking_at( self.e_using_web_trigger.e_destructible.origin, .4, 0 ) )
+		return 0;
+	
+	if ( isDefined( s_unitrigger.stub.origin ) && isDefined( s_unitrigger.stub.radius ) )
+	{
+		if ( distance( self.origin, s_unitrigger.stub.origin ) > s_unitrigger.stub.radius )
+			return 0;
+		
+	}
+	return 1;
+}
+
+function spider_webtear_use_bar_think( start_time, craft_time )
+{
+	if ( isDefined( self.usebartext ) )
+		self.usebartext hud::destroyelem();
+	
+	if ( isDefined( self.usebar ) )
+		self.usebar hud::destroyelem();
+	
+	self.usebar = self hud::createprimaryprogressbar();
+	self.usebartext = self hud::createprimaryprogressbartext();
+	self.usebartext setText( "Slashing..." );
+	if ( isDefined( self ) && isDefined( start_time ) && isDefined( craft_time ) )
+		self spider_webtear_use_bar_update( start_time, craft_time );
+	
+	if ( isDefined( self.usebartext ) )
+		self.usebartext hud::destroyelem();
+	
+	if ( isDefined( self.usebar ) )
+		self.usebar hud::destroyelem();
+	
+}
+
+function spider_webtear_use_bar_update( n_start_time, n_length )
+{
+	self endon( "entering_last_stand" );
+	self endon( "death" );
+	self endon( "disconnect" );
+	self endon( "webtear_over" );
+	while ( isDefined( self ) && ( getTime() - n_start_time ) < n_length )
+	{
+		n_progress = ( getTime() - n_start_time ) / n_length;
+		if ( n_progress < 0 )
+			n_progress = 0;
+		
+		if ( n_progress > 1 )
+			n_progress = 1;
+		
+		self.usebar hud::updatebar( n_progress );
+		WAIT_SERVER_FRAME;
+	}
 }

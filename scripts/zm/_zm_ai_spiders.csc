@@ -1,27 +1,16 @@
-
 #using scripts\codescripts\struct;
-
-#using scripts\shared\callbacks_shared;
 #using scripts\shared\clientfield_shared;
-#using scripts\shared\flag_shared;
+#using scripts\shared\fx_shared;
+#using scripts\shared\postfx_shared;
 #using scripts\shared\system_shared;
-#using scripts\shared\util_shared;
 #using scripts\shared\vehicle_shared;
 #using scripts\shared\visionset_mgr_shared;
-#using scripts\shared\postfx_shared;
-
+#using scripts\zm\_zm;
+#using scripts\zm\_zm_perk_widows_wine;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 #insert scripts\zm\_zm_ai_spiders.gsh;
 
-#using scripts\zm\_util;
-#using scripts\zm\_zm_equipment;
-#using scripts\zm\_zm_perks;
-#using scripts\zm\_zm_utility;
-
-#namespace zm_ai_spiders;
-
-// spider round fx
 #precache( "client_fx", "dlc2\island\fx_spider_round_tell" );
 #precache( "client_fx", "dlc2\island\fx_web_grenade_tell" );
 #precache( "client_fx", "dlc2\island\fx_web_bgb_tearing" );
@@ -31,230 +20,194 @@
 #precache( "client_fx", "dlc2\island\fx_web_barrier_tearing" );
 #precache( "client_fx", "dlc2\island\fx_web_barrier_reveal" );
 #precache( "client_fx", "dlc2\island\fx_web_impact_rocket" );
+#precache( "client_fx", "dlc2\island\fx_spider_round_tell" );
+
+#namespace zm_ai_spiders;
 
 REGISTER_SYSTEM_EX( "zm_ai_spiders", &__init__, &__main__, undefined )
 
 function __init__()
 {
-	clientfield::register("world", "force_stream_spiders", 9001, 1, "int", &force_stream_spiders, 0, 0);
+	clientfield::register( "toplayer", "spider_round_fx", VERSION_SHIP, 1, "counter", &spider_round_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "toplayer", "spider_round_ring_fx", VERSION_SHIP, 1, "counter", &spider_round_ring_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "toplayer", "spider_end_of_round_reset", VERSION_SHIP, 1, "counter", &spider_end_of_round_reset, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "scriptmover", "set_fade_material", VERSION_SHIP, 1, "int", &set_fade_material, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "scriptmover", "web_fade_material", VERSION_SHIP, 3, "float", &web_fade_material, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "missile", "play_grenade_stuck_in_web_fx", VERSION_SHIP, 1, "int", &play_grenade_stuck_in_web_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "scriptmover", "play_spider_web_tear_fx", VERSION_SHIP, getMinBitCountForNum( 4 ), "int", &play_spider_web_tear_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "scriptmover", "play_spider_web_tear_complete_fx", VERSION_SHIP, getMinBitCountForNum( 4 ), "int", &play_spider_web_tear_complete_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "world", "force_stream_spiders", VERSION_SHIP, 1, "int", &force_stream_spiders, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	
-	level._effect["spider_round"] 												= "dlc2/island/fx_spider_round_tell";
-	level._effect["spider_web_grenade_stuck"] 							= "dlc2/island/fx_web_grenade_tell";
-	level._effect["spider_web_bgb_tear"] 									= "dlc2/island/fx_web_bgb_tearing";
-	level._effect["spider_web_bgb_tear_complete"] 					= "dlc2/island/fx_web_bgb_reveal";
-	level._effect["spider_web_perk_machine_tear"] 					= "dlc2/island/fx_web_perk_machine_tearing";
-	level._effect["spider_web_perk_machine_tear_complete"] 	= "dlc2/island/fx_web_perk_machine_reveal";
-	level._effect["spider_web_doorbuy_tear"] 							= "dlc2/island/fx_web_barrier_tearing";
-	level._effect["spider_web_doorbuy_tear_complete"] 			= "dlc2/island/fx_web_barrier_reveal";
-	level._effect["spider_web_tear_explosive"] 							= "dlc2/island/fx_web_impact_rocket";
-	register_clientfields();
-	vehicle::add_vehicletype_callback("spider", &spider_vehicle_init);
-	visionset_mgr::register_visionset_info("zm_isl_parasite_spider_visionset", 9000, 16, undefined, "zm_isl_parasite_spider");
-}
-
-function force_stream_spiders(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
-{
-	if(newVal)
-	{
-		ForceStreamXModel("c_zom_dlc2_spider");
-	}
-	else
-	{
-		StopForceStreamingXModel("c_zom_dlc2_spider");
-	}
+	level._effect[ "spider_round" ] = "dlc2/island/fx_spider_round_tell";
+	level._effect[ "spider_web_grenade_stuck" ] = "dlc2/island/fx_web_grenade_tell";
+	level._effect[ "spider_web_bgb_tear" ] = "dlc2/island/fx_web_bgb_tearing";
+	level._effect[ "spider_web_bgb_tear_complete" ] = "dlc2/island/fx_web_bgb_reveal";
+	level._effect[ "spider_web_perk_machine_tear" ] = "dlc2/island/fx_web_perk_machine_tearing";
+	level._effect[ "spider_web_perk_machine_tear_complete" ] = "dlc2/island/fx_web_perk_machine_reveal";
+	level._effect[ "spider_web_doorbuy_tear" ] = "dlc2/island/fx_web_barrier_tearing";
+	level._effect[ "spider_web_doorbuy_tear_complete" ] = "dlc2/island/fx_web_barrier_reveal";
+	level._effect[ "spider_web_tear_explosive" ] = "dlc2/island/fx_web_impact_rocket";
+	
+	vehicle::add_vehicletype_callback( "spider", &spider_init );
+	visionset_mgr::register_visionset_info( "zm_isl_parasite_spider_visionset", VERSION_SHIP, 16, undefined, "zm_isl_parasite_spider" );
 }
 
 function __main__()
 {
 }
 
-function register_clientfields()
+function force_stream_spiders( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
-	clientfield::register("toplayer", "spider_round_fx", 9000, 1, "counter", &spider_round_fx, 0, 0);
-	clientfield::register("toplayer", "spider_round_ring_fx", 9000, 1, "counter", &spider_round_ring_fx, 0, 0);
-	clientfield::register("toplayer", "spider_end_of_round_reset", 9000, 1, "counter", &spider_end_of_round_reset, 0, 0);
-	clientfield::register("scriptmover", "set_fade_material", 9000, 1, "int", &set_fade_material, 0, 0);
-	clientfield::register("scriptmover", "web_fade_material", 9000, 3, "float", &web_fade_material, 0, 0);
-	clientfield::register("missile", "play_grenade_stuck_in_web_fx", 9000, 1, "int", &play_grenade_stuck_in_web_fx, 0, 0);
-	clientfield::register("scriptmover", "play_spider_web_tear_fx", 9000, GetMinBitCountForNum(4), "int", &play_spider_web_tear_fx, 0, 0);
-	clientfield::register("scriptmover", "play_spider_web_tear_complete_fx", 9000, GetMinBitCountForNum(4), "int", &play_spider_web_tear_complete_fx, 0, 0);
-}
-
-function spider_vehicle_init(localClientNum)
-{
-	self.str_tag_tesla_death_fx = "J_SpineUpper";
-	self.str_tag_tesla_shock_eyes_fx = "J_SpineUpper";
-}
-
-function spider_round_fx(n_local_client, n_val_old, n_val_new, b_ent_new, b_initial_snap, str_field, b_demo_jump)
-{
-	self endon("disconnect");
-	SetWorldFogActiveBank(n_local_client, 8);
-	if(IsSpectating(n_local_client))
-	{
-		return;
-	}
-	self.fx_spider_round_camera = PlayFXOnCamera(n_local_client, level._effect["spider_round"]);
-	playsound(0, "zmb_spider_round_webup", (0, 0, 0));
-	wait(0.016);
-	self thread postfx::playPostfxBundle("pstfx_parasite_spider");
-	wait(3.5);
-	deletefx(n_local_client, self.fx_spider_round_camera);
-}
-
-function spider_end_of_round_reset(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
-{
-	if(newVal == 1)
-	{
-		SetWorldFogActiveBank(localClientNum, 1);
-	}
-}
-
-function spider_round_ring_fx(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
-{
-	self endon("disconnect");
-	if(IsSpectating(localClientNum))
-	{
-		return;
-	}
-	self thread postfx::playPostfxBundle("pstfx_ring_loop");
-	wait(1.5);
-	self postfx::exitPostfxBundle();
-}
-
-function function_bea149a5(localClientNum, var_afc7cc94, var_b05b3457, b_on, n_alpha, var_abf03d83, var_c0ce8db2)
-{
-	if(!isdefined(n_alpha))
-	{
-		n_alpha = 1;
-	}
-	if(!isdefined(var_abf03d83))
-	{
-		var_abf03d83 = 0;
-	}
-	if(!isdefined(var_c0ce8db2))
-	{
-		var_c0ce8db2 = 0;
-	}
-	self endon("entityshutdown");
-	if(self.b_on === b_on)
-	{
-		return;
-	}
+	if ( newVal )
+		forceStreamXModel( "c_zom_dlc2_spider" );
 	else
+		stopForceStreamingXModel( "c_zom_dlc2_spider" );
+	
+}
+
+function spider_init( localclientnum )
+{
+	self.str_tag_tesla_death_fx = "j_spineupper";
+	self.str_tag_tesla_shock_eyes_fx = "j_spineupper";
+}
+
+function spider_round_fx( n_local_client, n_val_old, n_val_new, b_ent_new, b_initial_snap, str_field, b_demo_jump )
+{
+	self endon( "disconnect" );
+	setWorldFogActiveBank( n_local_client, 8 );
+	if ( isSpectating( n_local_client ) )
+		return;
+	
+	self.fx_spider_camera_fx = playFxOnCamera( n_local_client, level._effect[ "spider_round" ] );
+	playSound( 0, "zmb_spider_round_webup", ( 0, 0, 0 ) );
+	WAIT_CLIENT_FRAME;
+	self thread postfx::playpostfxbundle( "pstfx_parasite_spider" );
+	wait 3.5;
+	deleteFx( n_local_client, self.fx_spider_camera_fx );
+}
+
+function spider_end_of_round_reset( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
+{
+	if ( newval == 1 )
+		setWorldFogActiveBank( localclientnum, 1 );
+	
+}
+
+function spider_round_ring_fx( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
+{
+	self endon( "disconnect" );
+	if ( isSpectating( localclientnum ) )
+		return;
+	
+	self thread postfx::playpostfxbundle( "pstfx_ring_loop" );
+	wait 1.5;
+	self postfx::exitpostfxbundle();
+}
+
+function web_fade_transition( localclientnum, str_vector, n_offset, b_on, n_alpha = 1, b_instant = 0, b_sqr = 0 )
+{
+	self endon( "entityshutdown" );
+	if ( self.b_on === b_on )
+		return;
+	
+	self.b_on = b_on;
+	if ( b_instant )
 	{
-		self.b_on = b_on;
-	}
-	if(var_abf03d83)
-	{
-		if(b_on)
-		{
-			self transition_shader(localClientNum, n_alpha, var_afc7cc94);
-		}
+		if ( b_on )
+			self transition_shader( localclientnum, n_alpha, str_vector );
 		else
-		{
-			self transition_shader(localClientNum, 0, var_afc7cc94);
-		}
+			self transition_shader( localclientnum, 0, str_vector );
+		
 		return;
 	}
-	if(b_on)
+	if ( b_on )
 	{
-		var_24fbb6c6 = 0;
+		n_current_alpha = 0;
 		i = 0;
-		while(var_24fbb6c6 <= n_alpha)
+		while ( n_current_alpha <= n_alpha )
 		{
-			self transition_shader(localClientNum, var_24fbb6c6, var_afc7cc94);
-			if(var_c0ce8db2)
-			{
-				var_24fbb6c6 = sqrt(i);
-			}
+			self transition_shader( localclientnum, n_current_alpha, str_vector );
+			if ( b_sqr )
+				n_current_alpha = sqrt( i );
 			else
-			{
-				var_24fbb6c6 = i;
-			}
-			wait(0.01);
-			i = i + var_b05b3457;
+				n_current_alpha = i;
+			
+			wait .01;
+			i = i + n_offset;
 		}
-		self.var_bbfa5d7d = n_alpha;
-		self transition_shader(localClientNum, n_alpha, var_afc7cc94);
+		self.n_web_alpha = n_alpha;
+		self transition_shader( localclientnum, n_alpha, str_vector );
 	}
-	else if(isdefined(self.var_bbfa5d7d))
-	{
-		var_bbfa5d7d = self.var_bbfa5d7d;
-	}
+	else if ( isDefined( self.n_web_alpha ) )
+		n_web_alpha = self.n_web_alpha;
 	else
+		n_web_alpha = 1;
+	
+	n_current_alpha = n_web_alpha;
+	i = n_web_alpha;
+	while ( n_current_alpha >= 0 )
 	{
-		var_bbfa5d7d = 1;
-	}
-	var_24fbb6c6 = var_bbfa5d7d;
-	i = var_bbfa5d7d;
-	while(var_24fbb6c6 >= 0)
-	{
-		self transition_shader(localClientNum, var_24fbb6c6, var_afc7cc94);
-		if(var_c0ce8db2)
-		{
-			var_24fbb6c6 = sqrt(i);
-		}
+		self transition_shader( localclientnum, n_current_alpha, str_vector );
+		if ( b_sqr )
+			n_current_alpha = sqrt( i );
 		else
-		{
-			var_24fbb6c6 = i;
-		}
-		wait(0.01);
-		i = i - var_b05b3457;
+			n_current_alpha = i;
+		
+		wait .01;
+		i = i - n_offset;
 	}
-	self transition_shader(localClientNum, 0, var_afc7cc94);
+	self transition_shader( localclientnum, 0, str_vector );
 }
 
-function transition_shader(localClientNum, n_value, var_afc7cc94)
+function transition_shader( localclientnum, n_value, str_vector )
 {
-	self MapShaderConstant(localClientNum, 0, "scriptVector" + var_afc7cc94, n_value, n_value, 0, 0);
+	self mapShaderConstant( localclientnum, 0, "scriptVector" + str_vector, n_value, n_value, 0, 0 );
 }
 
-function set_fade_material(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
+function set_fade_material( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
 {
-	self MapShaderConstant(localClientNum, 0, "scriptVector0", newVal, 0, 0, 0);
+	self mapShaderConstant( localclientnum, 0, "scriptVector0", newval, 0, 0, 0 );
 }
 
-function web_fade_material(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
+function web_fade_material( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
 {
-	var_f2efc20a = 0;
-	if(newVal <= 0)
+	b_web_on = 0;
+	if ( newval <= 0 )
 	{
-		var_f2efc20a = 0;
-		var_32ee3d8b = newVal;
+		b_web_on = 0;
+		n_web_alpha = newval;
 	}
 	else
 	{
-		var_f2efc20a = 1;
-		var_32ee3d8b = newVal;
+		b_web_on = 1;
+		n_web_alpha = newval;
 	}
-	self thread function_bea149a5(localClientNum, 0, 0.025, var_f2efc20a, var_32ee3d8b);
+	self thread web_fade_transition( localclientnum, 0, .025, b_web_on, n_web_alpha );
 }
 
-function play_grenade_stuck_in_web_fx(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
+function play_grenade_stuck_in_web_fx( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
 {
-	if(isdefined(self))
-	{
-		PlayFXOnTag(localClientNum, level._effect["spider_web_grenade_stuck"], self, "tag_origin");
-	}
+	if ( isDefined( self ) )
+		playFxOnTag( localclientnum, level._effect[ "spider_web_grenade_stuck" ], self, "tag_origin" );
+	
 }
 
-function play_spider_web_tear_fx(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
+function play_spider_web_tear_fx( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
 {
-	switch(newVal)
+	switch ( newval )
 	{
 		case 0:
 		{
-			if(isdefined(self) && isdefined(self.var_d5eda36c))
+			if ( isDefined( self ) && isDefined( self.fx_web_tear ) )
 			{
-				stopfx(localClientNum, self.var_d5eda36c);
-				self.var_d5eda36c = undefined;
+				stopfx( localclientnum, self.fx_web_tear );
+				self.fx_web_tear = undefined;
 			}
-			if(isdefined(self) && isdefined(self.var_cac11e11))
+			if ( isDefined( self ) && isDefined( self.snd_web_tear ) )
 			{
-				self StopLoopSound(self.var_cac11e11, 0.5);
-				self playsound(0, "zmb_spider_web_tear_stop");
-				self.var_cac11e11 = undefined;
+				self stopLoopSound( self.snd_web_tear, .5 );
+				self playSound( 0, "zmb_spider_web_tear_stop" );
+				self.snd_web_tear = undefined;
 			}
 			return;
 		}
@@ -278,20 +231,19 @@ function play_spider_web_tear_fx(localClientNum, oldVal, newVal, bNewEnt, bIniti
 			return;
 		}
 	}
-	if(!isdefined(self.var_cac11e11))
+	if ( !isDefined( self.snd_web_tear ) )
 	{
-		self.var_cac11e11 = self PlayLoopSound("zmb_spider_web_tear_loop", 1);
-		self playsound(0, "zmb_spider_web_tear_start");
+		self.snd_web_tear = self playloopsound( "zmb_spider_web_tear_loop", 1 );
+		self playSound( 0, "zmb_spider_web_tear_start" );
 	}
-	if(!isdefined(self.var_d5eda36c))
-	{
-		self.var_d5eda36c = playFX(localClientNum, level._effect[str_effect], self.origin, AnglesToForward(self.angles), anglesToUp(self.angles));
-	}
+	if ( !isDefined( self.fx_web_tear ) )
+		self.fx_web_tear = playFx( localclientnum, level._effect[ str_effect ], self.origin, anglestoforward( self.angles ), anglestoup( self.angles ) );
+	
 }
 
-function play_spider_web_tear_complete_fx(localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump)
+function play_spider_web_tear_complete_fx( localclientnum, oldval, newval, bnewent, binitialsnap, fieldname, bwastimejump )
 {
-	switch(newVal)
+	switch ( newval )
 	{
 		case 1:
 		{
@@ -318,5 +270,5 @@ function play_spider_web_tear_complete_fx(localClientNum, oldVal, newVal, bNewEn
 			return;
 		}
 	}
-	playFX(localClientNum, level._effect[str_effect], self.origin, AnglesToForward(self.angles), anglesToUp(self.angles));
+	playFx( localclientnum, level._effect[ str_effect ], self.origin, anglestoforward( self.angles ), anglestoup( self.angles ) );
 }
