@@ -168,7 +168,7 @@ function elemental_pop_damage_modifier( b_death, e_inflictor, e_attacker, n_dama
 	str_weapon_aat = e_attacker.aat[ w_weapon ];
 
 	str_random = array::random( getArrayKeys( level.aat ) );
-	if ( !isDefined( str_random ) || str_random == "none" || str_weapon_aat == str_random )
+	if ( !isDefined( str_random ) || str_random == "none" || ( isDefined( str_weapon_aat ) && str_weapon_aat == str_random ) )
 		return;
 
 	if ( b_death && !level.aat[ str_random ].occurs_on_death )
@@ -201,7 +201,7 @@ function elemental_pop_damage_modifier( b_death, e_inflictor, e_attacker, n_dama
 	str_reroll_icon = undefined;
 	n_percentage = level.aat[ str_random ].percentage;
 
-	if ( n_percentage >= randomFloat( 2 ) )
+	if ( n_percentage >= randomFloat( 1 ) )
 		b_success = 1;
 
 	if ( !b_success )
@@ -213,7 +213,7 @@ function elemental_pop_damage_modifier( b_death, e_inflictor, e_attacker, n_dama
 			{
 				for ( i = 0; i < level.aat_reroll[ str_key ].count; i++ )
 				{
-					if ( n_percentage >= randomFloat( 2 ) )
+					if ( n_percentage >= randomFloat( 1 ) )
 					{
 						b_success = 1;
 						str_reroll_icon = level.aat_reroll[ str_key ].damage_feedback_icon;

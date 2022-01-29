@@ -808,7 +808,7 @@ function launch_dead_zombie_away_from_point( v_origin, n_min_forward_force, n_ma
 
 function is_touching_teleport_exlusion( origin )
 {
-	a_exlusion_volumes = getEntArray( "player_no_spawn_volume","targetname" );
+	a_exlusion_volumes = getEntArray( "player_no_spawn_volume", "targetname" );
 
 	if ( !isDefined( a_exlusion_volumes ) || a_exlusion_volumes.size < 1 )
 		return 0;

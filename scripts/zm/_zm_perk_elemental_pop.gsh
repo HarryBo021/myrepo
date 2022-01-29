@@ -9,7 +9,7 @@
 #define ELEMENTAL_POP_SCRIPT_STRING									"elemental_pop_perk"
 #define ELEMENTAL_POP_JINGLE												"mus_perks_elementalpop_jingle"
 #define ELEMENTAL_POP_STING													"mus_perks_elementalpop_sting"
-#define ELEMENTAL_POP_PERK													"specialty_armorpiercing"
+#define ELEMENTAL_POP_PERK													"specialty_combat_efficiency"
 #define ELEMENTAL_POP_UI_GLOW_CLIENTFIELD						"elemental_pop_ui_glow"
 #define ELEMENTAL_POP_CLIENTFIELD										"hudItems.perks.elemental_pop"
 #define ELEMENTAL_POP_IN_WONDERFIZZ									1

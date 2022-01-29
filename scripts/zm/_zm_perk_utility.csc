@@ -71,7 +71,7 @@ function arrange_priority_waypoints( n_client_num )
 function remove_obj_id( n_client_num, n_old_value, n_new_value, b_new_ent, b_initial_snap, str_field_name, b_was_demo_jump )
 {
 	str_field_name = "objective" + self.n_obj_id;
-	setUIModelValue( getUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -100 );
+	setUIModelValue( getUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -10 );
 	arrayRemoveValue( level.a_priority_waypoints[ n_client_num ], self );
 }
 
@@ -80,7 +80,7 @@ function create_and_set_obj_id( n_client_num, n_old_value, n_new_value, b_new_en
 	self.n_obj_id = n_new_value;
 	level.a_priority_waypoints[ n_client_num ][ level.a_priority_waypoints[ n_client_num ].size ] = self;
 	str_field_name = "objective" + self.n_obj_id;
-	setUIModelValue( createUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -100 );
+	setUIModelValue( createUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -10 );
 }
 
 function reorder_priority_waypoints( n_client_num )
@@ -91,7 +91,7 @@ function reorder_priority_waypoints( n_client_num )
 		for ( i = 0; i < a_priority_waypoints[ n_client_num ].size; i++ )
 		{
 			str_field_name = "objective" + a_priority_waypoints[ n_client_num ][ i ].n_obj_id;
-			setUIModelValue( getUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -100 );
+			setUIModelValue( getUIModel( getUIModelForController( n_client_num ), str_field_name + ".priority" ), -10 );
 		}
 		n_priority = -1;
 		for ( i = 0; i < a_priority_waypoints[ n_client_num ].size; i++ )

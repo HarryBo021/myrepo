@@ -205,7 +205,7 @@ function widows_wine_perk_activate()
 		self [[self.widows_wine_knife_override]]();
 	else
 	{
-		if ( self.w_widows_wine_prev_knife.name != "t7_one_inch_punch_upgraded" && self.w_widows_wine_prev_knife.name != "t7_one_inch_punch" && self.w_widows_wine_prev_knife.name != "tazer_knuckles" )
+		if ( self.w_widows_wine_prev_knife.name != "t7_one_inch_punch_upgraded" && self.w_widows_wine_prev_knife.name != "t7_one_inch_punch" && self.w_widows_wine_prev_knife.name != "t6_tazer_knuckles" )
 		{
 			self takeWeapon( self.w_widows_wine_prev_knife );
 		
