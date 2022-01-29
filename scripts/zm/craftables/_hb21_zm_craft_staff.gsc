@@ -29,6 +29,7 @@ function __init__()
 	level.zombie_craftable_persistent_weapon = &check_crafted_staff_persistence;
 	
 	// # CLIENTFIELD REGISTRATION
+	clientfield::register( "clientuimodel", CLIENTFIELD_STAFF_PARTS, VERSION_SHIP, 1, "int" );
 	clientfield::register( "scriptmover", "staff_element_glow_fx", VERSION_SHIP, 4, "int" );
 	// # CLIENTFIELD REGISTRATION
 	
@@ -265,8 +266,10 @@ function on_pickup_common( e_player_owner )
 {
 	e_player_owner playSound( "zmb_craftable_pickup" );	
 	
+	iPrintLnBold( "zminventory." + self.craftablename + ".visible" );
+	
 	foreach( e_player in level.players )
-		e_player thread zm_craftables::player_show_craftable_parts_ui( undefined, "zminventory." + self.craftablename + ".visible", 0 );
+		e_player thread staff_player_show_craftable_parts_ui( undefined, "zminventory." + self.craftablename + ".visible", 0 );
 
 	self.piece_owner = e_player_owner;
 }
@@ -295,7 +298,7 @@ function on_fully_crafted()
 		self thread hb21_zm_weap_staff_utility::staff_pedestal_watch_for_loss();
 		
 		foreach ( e_player in level.players )
-			e_player thread zm_craftables::player_show_craftable_parts_ui( undefined, "zminventory." + self.equipname + ".visible", 1 );
+			e_player thread staff_player_show_craftable_parts_ui( undefined, "zminventory." + self.equipname + ".visible", 1 );
 		
 	}
 	if ( !isDefined( s_charger ) || !IS_TRUE( s_charger.b_upgraded ) )
@@ -398,4 +401,35 @@ function craftable_waittill_spawned()
 	
 }
 
+function staff_player_show_craftable_parts_ui( str_crafted_clientuimodel, str_widget_clientuimodel, b_is_crafted )
+{
+	self notify( "staff_player_show_craftable_parts_ui" );
+	self endon( "staff_player_show_craftable_parts_ui" );
+	
+	if( b_is_crafted )
+	{
+		if( isdefined( str_crafted_clientuimodel ) )
+		{
+			self thread clientfield::set_player_uimodel( str_crafted_clientuimodel, 1 );
+		}
+		n_show_ui_duration = ZM_CRAFTABLES_FULLY_CRAFTED_UI_DURATION;
+	}
+	else
+	{
+		n_show_ui_duration = ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION;
+	}	
+	
+	self thread staff_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION );	
+}
+
+function staff_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, n_show_ui_duration )
+{
+	self endon( "disconnect" );
+	self notify( str_widget_clientuimodel + "_staff_player_show_craftable_parts_ui" );
+	self endon( str_widget_clientuimodel + "_staff_player_show_craftable_parts_ui" );
+	
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 1 );
+	wait n_show_ui_duration;
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 0 );
+}
 // ============================== FUNCTIONALITY ==============================

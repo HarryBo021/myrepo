@@ -2,7 +2,7 @@
 	
 // SETTINGS
 // ======================================================================================================
-#define CLIENTFIELD_KT4_CRAFTED										"zmInventory.player_crafted_dragon_shield"
+#define CLIENTFIELD_KT4_CRAFTED										"zmInventory.player_crafted_wonderweapon"
 #define CLIENTFIELD_KT4_PARTS											"zmInventory.widget_wonderweapon_parts"
 #define CLIENTFIELD_CRAFTABLE_PIECE_KT4_I						"wonderweapon_part_wwi"
 #define CLIENTFIELD_CRAFTABLE_PIECE_KT4_II						"wonderweapon_part_wwii"

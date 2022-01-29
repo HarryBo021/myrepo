@@ -21,9 +21,9 @@ function __init__()
 	// # CLIENTFIELD REGISTRATION
 	clientfield::register( "clientuimodel", 	CLIENTFIELD_DRAGONSHIELD_CRAFTED, 								VERSION_SHIP, 1, "int", undefined, 												!CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT	 );
 	clientfield::register( "clientuimodel", 	CLIENTFIELD_DRAGONSHIELD_PARTS, 									VERSION_SHIP, 1, "int", undefined, 												!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
-	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_PELVIS,		VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
-	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_HEAD, 		VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
-	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_WINDOW,	VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
+	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_PELVIS,		VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
+	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_HEAD, 		VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
+	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_DRAGONSHIELD_WINDOW,	VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT	 );
 	// # CLIENTFIELD REGISTRATION
 }
 

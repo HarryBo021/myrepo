@@ -22,6 +22,7 @@ REGISTER_SYSTEM_EX( "hb21_zm_craft_staff", &__init__, &__main__, undefined )
 function __init__()
 {
 	// # CLIENTFIELD REGISTRATION
+	clientfield::register( "clientuimodel", CLIENTFIELD_STAFF_PARTS, VERSION_SHIP, 1, "int", undefined, !CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "scriptmover", "staff_element_glow_fx", VERSION_SHIP, 4, "int", &staff_element_glow_fx, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	// # CLIENTFIELD REGISTRATION
 	
@@ -36,7 +37,7 @@ function __init__()
 	zm_craftables::include_zombie_craftable( CRAFTABLE_FIRESTAFF );
 	zm_craftables::add_zombie_craftable( CRAFTABLE_FIRESTAFF );
 	
-	clientfield::register( "clientuimodel", 	CLIENTFIELD_CRAFTABLE_FIRESTAFF_VISIBLE, 							VERSION_SHIP, 1, "int", undefined, 												!CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+	clientfield::register( "clientuimodel", 	CLIENTFIELD_CRAFTABLE_FIRESTAFF_VISIBLE, 							VERSION_SHIP, 1, "int", undefined, 												!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_FIRESTAFF_HOLDER, 							VERSION_SHIP, 5, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_FIRESTAFF_QUEST_STATE, 					VERSION_SHIP, 5, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "world", 				CLIENTFIELD_CRAFTABLE_PIECE_FIRESTAFF_CRYSTAL,				VERSION_SHIP, 1, "int", &zm_utility::setSharedInventoryUIModels, 	!CF_HOST_ONLY, CF_CALLBACK_ZERO_ON_NEW_ENT );

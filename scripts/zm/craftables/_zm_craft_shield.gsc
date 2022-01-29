@@ -77,7 +77,7 @@ function on_pickup_common( e_player )
 	
 	foreach( e_player_index in level.players )
 	{
-		e_player_index thread zm_craftables::player_show_craftable_parts_ui( CLIENTFIELD_ROCKETSHIELD_CRAFTED, CLIENTFIELD_ROCKETSHIELD_PARTS, 0 );
+		e_player_index thread shield_player_show_craftable_parts_ui( CLIENTFIELD_ROCKETSHIELD_CRAFTED, CLIENTFIELD_ROCKETSHIELD_PARTS, 0 );
 		e_player_index thread show_infotext_for_duration( ZMUI_SHIELD_PART_PICKUP, ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION );
 	}
 
@@ -97,7 +97,7 @@ function on_fully_crafted()
 	{
 		if ( zm_utility::is_player_valid( e_player ) )
 		{
-			e_player thread zm_craftables::player_show_craftable_parts_ui( CLIENTFIELD_ROCKETSHIELD_CRAFTED, CLIENTFIELD_ROCKETSHIELD_PARTS, 1 );
+			e_player thread shield_player_show_craftable_parts_ui( CLIENTFIELD_ROCKETSHIELD_CRAFTED, CLIENTFIELD_ROCKETSHIELD_PARTS, 1 );
 			e_player thread show_infotext_for_duration( ZMUI_SHIELD_CRAFTED, ZM_CRAFTABLES_FULLY_CRAFTED_UI_DURATION );
 		}
 	}
@@ -120,6 +120,37 @@ function on_buy_weapon_riotshield( e_player )
 // ============================== CALLBACKS ==============================
 
 // ============================== FUNCTIONALITY ==============================
+
+function shield_player_show_craftable_parts_ui( str_crafted_clientuimodel, str_widget_clientuimodel, b_is_crafted )
+{
+	self notify( "shield_player_show_craftable_parts_ui" );
+	self endon( "shield_player_show_craftable_parts_ui" );
+	
+	if( b_is_crafted )
+	{
+		if( isdefined( str_crafted_clientuimodel ) )
+		{
+			self thread clientfield::set_player_uimodel( str_crafted_clientuimodel, 1 );
+		}
+		n_show_ui_duration = ZM_CRAFTABLES_FULLY_CRAFTED_UI_DURATION;
+	}
+	else
+	{
+		n_show_ui_duration = ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION;
+	}	
+	
+	self thread shield_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, n_show_ui_duration );
+}
+
+function shield_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, n_show_ui_duration )
+{
+	self endon( "disconnect" );
+	self endon( "shield_player_show_craftable_parts_ui" );
+	
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 1 );
+	wait n_show_ui_duration;
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 0 );
+}
 
 function show_infotext_for_duration( str_infotext, n_duration )
 {

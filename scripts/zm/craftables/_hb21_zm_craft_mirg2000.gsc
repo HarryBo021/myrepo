@@ -132,7 +132,7 @@ function mirg2000_player_show_craftable_parts_ui( str_flag )
 			foreach ( e_player in a_players )
 			{
 				e_player clientfield::set_to_player( CLIENTFIELD_CRAFTABLE_PIECE_KT4_I, 1 );
-				e_player thread zm_craftables::player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwi", CLIENTFIELD_KT4_PARTS, 0 );
+				e_player thread mirg_player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwi", CLIENTFIELD_KT4_PARTS, 0 );
 			}
 			break;
 		}
@@ -141,7 +141,7 @@ function mirg2000_player_show_craftable_parts_ui( str_flag )
 			foreach ( e_player in a_players )
 			{
 				e_player clientfield::set_to_player( CLIENTFIELD_CRAFTABLE_PIECE_KT4_II, 1 );
-				e_player thread zm_craftables::player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwii", CLIENTFIELD_KT4_PARTS, 0 );
+				e_player thread mirg_player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwii", CLIENTFIELD_KT4_PARTS, 0 );
 			}
 			break;
 		}
@@ -150,7 +150,7 @@ function mirg2000_player_show_craftable_parts_ui( str_flag )
 			foreach ( e_player in a_players )
 			{
 				e_player clientfield::set_to_player( CLIENTFIELD_CRAFTABLE_PIECE_KT4_III, 1 );
-				e_player thread zm_craftables::player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwiii", CLIENTFIELD_KT4_PARTS, 0 );
+				e_player thread mirg_player_show_craftable_parts_ui( "zmInventory.wonderweapon_part_wwiii", CLIENTFIELD_KT4_PARTS, 0 );
 			}
 			break;
 		}
@@ -402,6 +402,38 @@ function mirg2000_run_visibility_function_for_all_triggers()
 {
 	self zm_unitrigger::run_visibility_function_for_all_triggers();
 }
+
+function mirg_player_show_craftable_parts_ui( str_crafted_clientuimodel, str_widget_clientuimodel, b_is_crafted )
+{
+	self notify( "mirg_player_show_craftable_parts_ui" );
+	self endon( "mirg_player_show_craftable_parts_ui" );
+	
+	if( b_is_crafted )
+	{
+		if( isdefined( str_crafted_clientuimodel ) )
+		{
+			self thread clientfield::set_player_uimodel( str_crafted_clientuimodel, 1 );
+		}
+		n_show_ui_duration = ZM_CRAFTABLES_FULLY_CRAFTED_UI_DURATION;
+	}
+	else
+	{
+		n_show_ui_duration = ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION;
+	}	
+	
+	self thread mirg_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, n_show_ui_duration );
+}
+
+function mirg_player_hide_craftable_parts_ui_after_duration( str_widget_clientuimodel, n_show_ui_duration )
+{
+	self endon( "disconnect" );
+	self endon( "mirg_player_show_craftable_parts_ui" );
+	
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 1 );
+	wait n_show_ui_duration;
+	self thread clientfield::set_player_uimodel( str_widget_clientuimodel, 0 );
+}
+
 
 // ============================== INITIALIZE ==============================
 

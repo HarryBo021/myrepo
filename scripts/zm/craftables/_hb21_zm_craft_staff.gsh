@@ -48,3 +48,7 @@
 #define CLIENTFIELD_CRAFTABLE_PIECE_LIGHTNINGSTAFF_REVIVE		"craft_staff_bolt.piece_zm_lstaff"
 #define LIGHTNINGSTAFF_PIECE_GLOW_FX											"dlc5/tomb/fx_tomb_elem_reveal_elec_glow"
 
+#define ZM_CRAFTABLES_NOT_ENOUGH_PIECES_UI_DURATION			3.5
+#define ZM_CRAFTABLES_FULLY_CRAFTED_UI_DURATION					3.5
+
+#define CLIENTFIELD_STAFF_PARTS													"zmInventory.widget_staff_parts"
