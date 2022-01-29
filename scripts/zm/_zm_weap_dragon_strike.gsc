@@ -129,7 +129,7 @@ function on_player_spawned()
 		self flag::init( "dragon_strike_active" );
 	
 	self thread dragon_strike_watch_weapon_change();
-	// self thread function_3e8c94e3();
+	self thread dragon_strike_specify_weapon_request();
 }
 
 function dragon_strike_player_damage_callback( e_inflictor, e_attacker, n_damage, n_flags, str_means_of_death, w_weapon, v_point, v_dir, str_hit_loc, n_offset_time, n_bone_index )
@@ -588,27 +588,16 @@ function switch_to_weapon_if_primary( w_weapon )
 	self switchToWeapon( w_weapon );
 }
 
-// ============================== FUNCTIONALITY ==============================
-
-/*
-	Name: function_3e8c94e3
-	Namespace: dragon_strike
-	Checksum: 0x52F2EB5C
-	Offset: 0x11D8
-	Size: 0x8F
-	Parameters: 0
-	Flags: None
-*/
-/*
-function function_3e8c94e3()
+function dragon_strike_specify_weapon_request()
 {
 	self endon( "disconnect" );
 	while ( 1 )
 	{
-		self waittill( "hash_937f376b", w_weapon ); // FUCK
+		self waittill( "specify_weapon_request", w_weapon );
 		if ( is_dragon_strike_weapon( w_weapon ) && ( self getAmmoCount( w_weapon ) == 0 || self.b_dragon_strike_active === 0 ) )
 			self clientfield::increment_uimodel( DRAGON_STRIKE_INVALID_USE_CF );
 		
 	}
 }
-*/
+
+// ============================== FUNCTIONALITY ==============================

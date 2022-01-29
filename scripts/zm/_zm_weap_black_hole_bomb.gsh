@@ -6,6 +6,8 @@
 
 #define BHB_VISION																				"zombie_cosmodrome_blackhole"
 
+#define BHB_CAN_TELEPORT_TO_SAME_ZONE										0
+
 // CLIENTFIELDS
 // ======================================================================================================
 #define BHB_TOGGLE_LIGHTS_CF															"bhb_viewlights"

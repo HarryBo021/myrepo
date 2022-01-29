@@ -438,8 +438,14 @@ function black_hole_time_before_teleport( e_player, str_endon )
 	{
 		for ( i = 0; i < a_black_hole_teleport_structs.size; i++ )
 		{
-			if ( zm_utility::check_point_in_enabled_zone( a_black_hole_teleport_structs[ i ].origin ) && e_player zm_utility::get_current_zone() != a_black_hole_teleport_structs[ i ].script_string )
+			if ( !isDefined( a_black_hole_teleport_structs[ i ].target ) )
+				continue;
+			
+			if ( zm_utility::check_point_in_enabled_zone( a_black_hole_teleport_structs[ i ].origin ) )
 			{
+				if ( IS_TRUE( BHB_CAN_TELEPORT_TO_SAME_ZONE ) && e_player zm_utility::get_current_zone() != a_black_hole_teleport_structs[ i ].target )
+					continue;
+				
 				s_chosen_spot = a_black_hole_teleport_structs[ i ];
 				break;
 			}

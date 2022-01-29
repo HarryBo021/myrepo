@@ -12,8 +12,12 @@
 #using scripts\zm\_zm_audio;
 #using scripts\zm\_zm_laststand;
 #using scripts\zm\_zm_utility;
+#using scripts\zm\_zm_powerups;
 #using scripts\zm\_zm_weapons;
 #using scripts\zm\_zm_zonemgr;
+#using scripts\zm\_zm_powerup_lose_points;
+#using scripts\zm\_zm_powerup_empty_clip;
+#using scripts\zm\_zm_powerup_lose_perk;
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
@@ -27,14 +31,16 @@
 
 #namespace zm_weap_quantum_bomb;
 
-REGISTER_SYSTEM_EX( "zm_weap_quantum_bomb", &__init__, undefined, undefined )
+REGISTER_SYSTEM_EX( "zm_weap_quantum_bomb", &__init__, &__main__, undefined )
 
 // ============================== INITIALIZE ==============================
 
 function __init__()
 {
 	// # VARIABLES AND SETTINGS
+	level.using_zombie_powerups = 1;
 	level.w_quantum_bomb = getWeapon( QUANTUM_BOMB_WEAPON );
+	zm_utility::register_tactical_grenade_for_level( QUANTUM_BOMB_WEAPON );
 	// # VARIABLES AND SETTINGS
 	
 	// # REGISTER FX
@@ -46,6 +52,7 @@ function __init__()
 	// # REGISTER FX
 	
 	// # REGISTER CALLBACKS
+	level._zombiemode_powerup_zombie_grab = &_zombiemode_powerup_zombie_grab;
 	level.quantum_bomb_register_result_func = &quantum_bomb_register_result;
 	level.quantum_bomb_deregister_result_func = &quantum_bomb_deregister_result;
 	level.quantum_bomb_in_playable_area_validation_func = &quantum_bomb_in_playable_area_validation;
@@ -65,12 +72,25 @@ function __init__()
 	quantum_bomb_register_result( "zombie_speed_buff", &quantum_bomb_zombie_speed_buff_result, QUANTUM_BOMB_ZOMBIE_SPEED_BUFF_CHANCE );
 	quantum_bomb_register_result( "zombie_add_to_total", &quantum_bomb_zombie_add_to_total_result, QUANTUM_BOMB_ZOMBIE_ADD_TO_TOTAL_CHANCE, &quantum_bomb_zombie_add_to_total_validation );
 	quantum_bomb_register_result( "zombie_fling", &quantum_bomb_zombie_fling_result );
+	quantum_bomb_register_result( "random_powerup", &quantum_bomb_random_powerup_result, QUANTUM_BOMB_RANDOM_POWERUP_CHANCE );
+	quantum_bomb_register_result( "random_zombie_grab_powerup", &quantum_bomb_random_zombie_grab_powerup_result, QUANTUM_BOMB_RANDOM_ZOMBIE_POWERUP_CHANCE );
+	// quantum_bomb_register_result( "random_weapon_powerup", &quantum_bomb_random_weapon_powerup_result, QUANTUM_BOMB_RANDOM_WEAPON_POWERUP_CHANCE );
+	quantum_bomb_register_result( "random_bonus_or_lose_points_powerup", &quantum_bomb_random_bonus_or_lose_points_powerup_result, QUANTUM_BOMB_POINTS_POWERUP_CHANCE );
 	// # REGISTER QED RESULTS	
+}
+
+function __main__()
+{
 }
 
 // ============================== INITIALIZE ==============================
 
 // ============================== CALLBACKS ==============================
+
+function _zombiemode_powerup_zombie_grab( e_grabber )
+{
+	level thread [[ level._zombiemode_powerup_grab ]]( self, e_grabber );
+}
 
 function quantum_bomb_on_spawned()
 {
@@ -560,6 +580,131 @@ function quantum_bomb_zombie_add_to_total_result( v_position )
 	quantum_bomb_play_mystery_effect( v_position );
 	self thread zm_audio::create_and_play_dialog( "kill", "quant_bad" );
 	level.zombie_total = level.zombie_total + level.zombie_ai_limit;
+}
+
+function quantum_bomb_random_powerup_result( v_position )
+{
+	if ( !isDefined( level.zombie_include_powerups ) || !level.zombie_include_powerups.size )
+		return;
+	
+	a_keys = getArrayKeys( level.zombie_include_powerups );
+	while ( a_keys.size )
+	{
+		n_index = randomInt( a_keys.size );
+		if ( !level.zombie_powerups[ a_keys[ n_index ] ].zombie_grabbable )
+		{
+			b_skip = 0;
+			switch ( a_keys[ n_index ] )
+			{
+				case "bonus_points_player":
+				case "bonus_points_team":
+				case "random_weapon":
+				{
+					b_skip = 1;
+					break;
+				}
+				case "fire_sale":
+				case "full_ammo":
+				case "insta_kill":
+				case "minigun":
+				{
+					if ( randomInt( 4 ) )
+						b_skip = 1;
+					
+					break;
+				}
+				case "bonfire_sale":
+				case "free_perk":
+				case "tesla":
+				{
+					if ( randomInt( 20 ) )
+						b_skip = 1;
+					
+					break;
+				}
+				default:
+				{
+				}
+			}
+			if ( b_skip )
+			{
+				arrayRemoveValue( a_keys, a_keys[ n_index ] );
+				continue;
+			}
+			self thread zm_audio::create_and_play_dialog( "kill", "quant_good" );
+			[ [ level.quantum_bomb_play_player_effect_at_position_func ] ]( v_position );
+			level zm_powerups::specific_powerup_drop( a_keys[ n_index ], v_position );
+			return;
+		}
+		else
+			arrayRemoveValue( a_keys, a_keys[ n_index ] );
+		
+	}
+}
+
+function quantum_bomb_random_zombie_grab_powerup_result( v_position )
+{
+	if ( !isDefined( level.zombie_include_powerups ) || !level.zombie_include_powerups.size )
+		return;
+	
+	a_keys = getArrayKeys( level.zombie_include_powerups );
+	
+	while ( a_keys.size )
+	{
+		n_index = randomInt( a_keys.size );
+		if ( level.zombie_powerups[ a_keys[ n_index ] ].zombie_grabbable )
+		{
+			self thread zm_audio::create_and_play_dialog( "kill", "quant_bad" );
+			[ [ level.quantum_bomb_play_player_effect_at_position_func ] ]( v_position );
+			level zm_powerups::specific_powerup_drop( a_keys[ n_index ], v_position );
+			return;
+		}
+		else
+			arrayRemoveValue( a_keys, a_keys[ n_index ] );
+		
+	}
+}
+
+function quantum_bomb_random_weapon_powerup_result( v_position )
+{
+	self thread zm_audio::create_and_play_dialog( "kill", "quant_good" );
+	[ [ level.quantum_bomb_play_player_effect_at_position_func ] ]( v_position );
+	level zm_powerups::specific_powerup_drop( "random_weapon", v_position );
+}
+
+function quantum_bomb_random_bonus_or_lose_points_powerup_result( v_position )
+{
+	n_rand = randomInt( 10 );
+	str_powerup = "bonus_points_team";
+	switch ( n_rand )
+	{
+		case 0:
+		case 1:
+		{
+			str_powerup = "lose_points_team";
+			if ( isDefined( level.zombie_include_powerups[ str_powerup ] ) )
+			{
+				self thread zm_audio::create_and_play_dialog( "kill", "quant_bad" );
+				break;
+			}
+		}
+		case 2:
+		case 3:
+		case 4:
+		{
+			str_powerup = "bonus_points_player";
+			if ( isDefined( level.zombie_include_powerups[ str_powerup ] ) )
+				break;
+			
+		}
+		default:
+		{
+			str_powerup = "bonus_points_team";
+			break;
+		}
+	}
+	[ [ level.quantum_bomb_play_player_effect_at_position_func ] ]( v_position );
+	level zm_powerups::specific_powerup_drop( str_powerup, v_position );
 }
 
 // ============================== FUNCTIONALITY ==============================

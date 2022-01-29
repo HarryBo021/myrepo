@@ -6,6 +6,7 @@
 #using scripts\shared\system_shared;
 #using scripts\shared\ai\zombie_utility;
 #using scripts\zm\_zm_equipment;
+#using scripts\zm\_zm_utility;
 #using scripts\zm\_zm_unitrigger;
 #using scripts\zm\_zm_weap_riotshield;
 #using scripts\zm\_hb21_zm_weap_utility;
@@ -14,6 +15,7 @@
 #insert scripts\shared\version.gsh;
 #insert scripts\shared\archetype_shared\archetype_shared.gsh;
 #insert scripts\zm\_zm_weap_rocketshield.gsh;
+#insert scripts\zm\_zm_utility.gsh;
 
 #precache( "string", "ZOMBIE_EQUIP_RIOTSHIELD_PICKUP_HINT_STRING" );
 #precache( "triggerstring", "ZOMBIE_PICKUP_BOTTLE" );
@@ -304,7 +306,7 @@ function rocketshield_bottle_trigger_visibility( e_player )
 {
 	self setHintString( "Hold ^3[{+activate}]^7 to recharge shield." );
 	
-	if ( !( IS_TRUE( e_player.hasriotshield ) ) || ( ( e_player getAmmoCount( e_player.weaponriotshield ) ) == e_player.weaponriotshield.maxammo ) )
+	if ( !( IS_TRUE( e_player.hasriotshield ) ) || ( e_player getAmmoCount( e_player.weaponriotshield ) == e_player.weaponriotshield.maxammo ) )
 		b_is_invis = 1;
 	else
 		b_is_invis = 0;
@@ -318,7 +320,16 @@ function rocketshield_recharge_trigger_think()
 {
 	while ( isDefined( self ) )
 	{
-		self waittill( "trigger_activated", e_player );
+		self waittill( "trigger", e_player );
+		
+		if ( e_player zm_utility::in_revive_trigger() ) 
+			continue;
+		
+		if ( IS_DRINKING( e_player.is_drinking ) )
+			continue;
+	
+		if ( !zm_utility::is_player_valid( e_player ) )
+			continue;
 		
 		level thread rocketshield_bottle_trigger_activate( self.stub, e_player );
 		

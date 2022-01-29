@@ -130,6 +130,16 @@ function monitor_loadout_change()
 		WAIT_SERVER_FRAME;
 		a_new_loadout = self getWeaponsList( 1 );
 		
+		for ( i = 0; i < a_loadout.size; i++ )
+		{
+			if ( !isInArray( a_new_loadout, a_loadout[ i ] ) )
+			{
+				if ( isDefined( a_loadout[ i ].ptr_weapon_lost_cb ) )
+					self [ [ a_loadout[ i ].ptr_weapon_lost_cb ] ]( a_loadout[ i ] ); // CHECK - ternary
+				
+				level notify( a_loadout[ i ].name + "_lost", self );
+			}
+		}
 		for ( i = 0; i < a_new_loadout.size; i++ )
 		{
 			if ( !isInArray( a_loadout, a_new_loadout[ i ] ) )
@@ -139,16 +149,6 @@ function monitor_loadout_change()
 			
 				level notify( a_new_loadout[ i ].name + "_obtained", self );
 				// iPrintLnBold( "WEAPON OBTAINED!!! = " + a_new_loadout[ i ].name );
-			}
-		}
-		for ( i = 0; i < a_loadout.size; i++ )
-		{
-			if ( !isInArray( a_new_loadout, a_loadout[ i ] ) )
-			{
-				if ( isDefined( a_loadout[ i ].ptr_weapon_lost_cb ) )
-					self [ [ a_loadout[ i ].ptr_weapon_lost_cb ] ]( a_loadout[ i ] ); // CHECK - ternary
-				
-				level notify( a_loadout[ i ].name + "_lost", self );
 			}
 		}
 		a_loadout = a_new_loadout;

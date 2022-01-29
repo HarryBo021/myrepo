@@ -86,10 +86,6 @@
 // SICKLE
 #using scripts\zm\_hb21_zm_weap_sickle;
 
-// RAGNAROK DG-4
-#using scripts\zm\_zm_weap_gravityspikes;
-#using scripts\zm\craftables\_zm_craft_gravityspikes;
-
 #namespace zm_t7_weapons;
 
 REGISTER_SYSTEM_EX( "zm_t7_weapons", &__init__, &__main__, undefined )

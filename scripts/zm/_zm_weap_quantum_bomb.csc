@@ -2,6 +2,9 @@
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\system_shared;
 #using scripts\zm\_zm_weapons;
+#using scripts\zm\_zm_powerup_lose_points;
+#using scripts\zm\_zm_powerup_empty_clip;
+#using scripts\zm\_zm_powerup_lose_perk;
 
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
@@ -21,6 +24,7 @@ function __init__()
 	// # REGISTER FX
 	level._effect[ "quantum_bomb_viewmodel_twist" ] = QUANTUM_BOMB_VIEWMODEL_TWIST_FX;
 	level._effect[ "quantum_bomb_viewmodel_press" ] = QUANTUM_BOMB_VIEWMODEL_PRESS_FX;
+	level._effect[ "powerup_on_red" ] = "zombie/fx_powerup_on_red_zmb";
 	// # REGISTER FX
 	
 	// # REGISTER CALLBACKS

@@ -11,6 +11,10 @@
 #define QUANTUM_BOMB_PLAYER_TELEPORT_CHANCE											20
 #define QUANTUM_BOMB_ZOMBIE_SPEED_BUFF_CHANCE									2
 #define QUANTUM_BOMB_ZOMBIE_ADD_TO_TOTAL_CHANCE								70
+#define QUANTUM_BOMB_RANDOM_POWERUP_CHANCE										5
+#define QUANTUM_BOMB_RANDOM_ZOMBIE_POWERUP_CHANCE							5
+#define QUANTUM_BOMB_RANDOM_WEAPON_POWERUP_CHANCE							60
+#define QUANTUM_BOMB_POINTS_POWERUP_CHANCE											25
 
 // CLIENTFIELDS
 // ======================================================================================================
